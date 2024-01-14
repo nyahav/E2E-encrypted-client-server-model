@@ -1,65 +1,112 @@
 import socket
-import threading
-import base64
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 
-class MessageServer:
-    def __init__(self):
-        self.port = self.read_port_info()
-        self.server_info = self.read_server_info()
-        self.clients = {}
+# פונקציה להצפנת הודעה ב-AES-CBC
+def encrypt_message(message, key, iv):
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    encrypted_message = cipher.encrypt(message)
+    return encrypted_message
 
-    def read_port_info(self):
-        try:
-            with open("port.info", "r") as file:
-                port = int(file.read().strip())
-                return port
-        except FileNotFoundError:
-            print("Warning: port.info file not found. Using default port 1234.")
-            return 1234
+# פונקציה לפענוח הודעה מוצפנת ב-AES-CBC
+def decrypt_message(encrypted_message, key, iv):
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_message = cipher.decrypt(encrypted_message)
+    return decrypted_message.rstrip(b'\0')  # להסיר padding
 
-    def read_server_info(self):
-        try:
-            with open("msg.info", "r") as file:
-                port = int(file.readline().strip())
-                name = file.readline().strip()
-                server_id = file.readline().strip()
-                symmetric_key = base64.b64decode(file.readline().strip())
-                return {"port": port, "name": name, "id": server_id, "symmetric_key": symmetric_key}
-        except FileNotFoundError:
-            print("Error: msg.info file not found.")
-            exit()
+# פונקציה לשליחת בקשה לשרת
+def send_request(sock, request):
+    sock.send(request.encode())
 
-    def handle_client(self, client_socket):
-        try:
-            while True:
-                request = client_socket.recv(1024).decode()
-                if not request:
-                    break
+# פונקציה לקבלת תשובה מהשרת
+def receive_response(sock):
+    response = sock.recv(1024).decode()
+    return response
 
-                # TODO: Implement protocol handling logic using PyCryptodome
-        except Exception as e:
-            print(f"Error handling client: {e}")
-        finally:
-            client_socket.close()
+# פונקציה לטיפול בשגיאה מצד השרת
+def handle_server_error():
+    print("server responded with an error")
 
-    def start(self):
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind(("localhost", self.port))
-        server_socket.listen(5)
-        print(f"Message server listening on port {self.port}...")
+# פונקציה לבצע בקשת רישום לשרת אימות
+def register_to_auth_server(sock, username):
+    request = f"REGISTER {username}"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+    else:
+        print("Registration successful")
 
-        try:
-            while True:
-                client_socket, addr = server_socket.accept()
-                client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
-                client_thread.start()
-        except KeyboardInterrupt:
-            print("Message server shutting down...")
-        finally:
-            server_socket.close()
+# פונקציה לשליחת בקשת רשימת שרתי הודעות לשרת אימות
+def get_message_servers_list(sock):
+    request = "GET_SERVERS_LIST"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+    else:
+        print("Message servers list:")
+        print(response)
+
+# פונקציה לקבלת מפתח AES מהשרת
+def get_aes_key_from_message_server(sock, server_id):
+    request = f"GET_AES_KEY {server_id}"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+        return None
+    else:
+        print(f"AES key received from message server {server_id}")
+        return response.encode()
+
+# פונקציה לשליחת הודעה לשרת הודעות
+def send_message_to_server(sock, message, aes_key, ticket):
+    iv = get_random_bytes(16)
+    encrypted_message = encrypt_message(message.encode(), aes_key, iv)
+    request = f"SEND_MESSAGE {iv.hex()} {encrypted_message.hex()} {ticket}"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+    else:
+        print("Message sent successfully")
+
+# פונקציה לבצע קבלת הודעה מהשרת הודעות
+def receive_message_from_server(sock, aes_key, ticket):
+    request = f"RECEIVE_MESSAGE {ticket}"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+    else:
+        iv, encrypted_message = response.split(' ')
+        iv = bytes.fromhex(iv)
+        encrypted_message = bytes.fromhex(encrypted_message)
+        decrypted_message = decrypt_message(encrypted_message, aes_key, iv)
+        print(f"Received message: {decrypted_message.decode()}")
+
+# פונקציה לבצע קריאה לשרת הודעות
+def main():
+    server_address = ('127.0.0.1', 1234)  # להחליף עם פרטי השרת המתאימים
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(server_address)
+
+    username = "user123"
+    register_to_auth_server(sock, username)
+
+    get_message_servers_list(sock)
+
+    server_id = "server1"  # לבחור שרת מהרשימה
+    aes_key = get_aes_key_from_message_server(sock, server_id)
+    if aes_key:
+        ticket = "12345"  # להשים פרטי כרטיס
+        message_to_send = "Hello, server!"
+        send_message_to_server(sock, message_to_send, aes_key, ticket)
+
+        receive_message_from_server(sock, aes_key, ticket)
+
+    sock.close()
 
 if __name__ == "__main__":
-    msg_server = MessageServer()
-    msg_server.start()
+    main()
