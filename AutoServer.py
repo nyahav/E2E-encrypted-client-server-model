@@ -21,7 +21,7 @@ class AuthenticationServer:
     def load_registered_devices(self):
         # Load registered devices from file (if exists)
         try:
-            with open("servers.txt", "r") as file:
+            with open("server.txt", "r") as file:
                 for line in file:
                     device_data = line.strip().split(":")
                     device_id, device_name, aes_key = device_data
@@ -31,7 +31,7 @@ class AuthenticationServer:
 
     def save_registered_devices(self):
         # Save registered devices to file
-        with open("servers.txt", "w") as file:
+        with open("server.txt", "w") as file:
             for device_id, device_info in self.devices.items():
                 file.write(f"{device_id}:{device_info['name']}:{device_info['aes_key']}\n")
 
