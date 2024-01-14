@@ -2,6 +2,23 @@ import socket
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 
+
+def __init__(self, server_id, aes_key):
+        self.server_id = server_id
+        self.aes_key = aes_key
+
+def handle_get_server_list(self, request):
+        #  logic to return a list of servers
+        server_list = [{"server_id": "server1", "server_name": "Message Server 1"}]
+        response = ResponseMessage(1602, {"servers": server_list})
+        return response
+
+def handle_get_aes_key(self, request):
+        #  logic to return the symmetric key for a specific server
+        client_id = request.payload["client_id"]
+        response = ResponseMessage(0416, {"aes_key": self.aes_key, "client_id": client_id})
+        return response
+
 # Function for encrypting a message using AES-CBC
 def encrypt_message(message, key, iv):
     cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -70,4 +87,43 @@ def send_message_to_server(sock, message, aes_key, ticket):
     if response == "ERROR":
         handle_server_error()
     else:
-        print("Message sent
+        print("Message sent successfully")
+
+# Function to receive a message from the message server
+def receive_message_from_server(sock, aes_key, ticket):
+    request = f"RECEIVE_MESSAGE {ticket}"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+    else:
+        iv, encrypted_message = response.split(' ')
+        iv = bytes.fromhex(iv)
+        encrypted_message = bytes.fromhex(encrypted_message)
+        decrypted_message = decrypt_message(encrypted_message, aes_key, iv)
+        print(f"Received message: {decrypted_message.decode()}")
+
+# Main function to initiate communication with servers
+def main():
+    server_address = ('127.0.0.1', 1234)  # Replace with the appropriate server details
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(server_address)
+
+    username = "user123"
+    register_to_auth_server(sock, username)
+
+    get_message_servers_list(sock)
+
+    server_id = "server1"  # Choose a server from the list
+    aes_key = get_aes_key_from_message_server(sock, server_id)
+    if aes_key:
+        ticket = "12345"  # Replace with actual ticket details
+        message_to_send = "Hello, server!"
+        send_message_to_server(sock, message_to_send, aes_key, ticket)
+
+        receive_message_from_server(sock, aes_key, ticket)
+
+    sock.close()
+
+if __name__ == "__main__":
+    main()

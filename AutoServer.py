@@ -5,6 +5,7 @@ import uuid
 class AuthenticationServer:
     def __init__(self):
         self.port = self.read_port_info()
+        self.clients = {}
         self.devices = {}
         self.load_registered_devices()
 
@@ -37,6 +38,20 @@ class AuthenticationServer:
     def handle_client(self, client_socket):
         # Handle client requests in a separate thread
         # TODO: Implement the protocol handling logic
+    
+      def handle_registration(self, request):
+        # Simplified registration logic
+        name = request.payload["name"]
+        password = request.payload["password"]
+
+        if name not in self.clients:
+            client_id = generate_unique_id()
+            self.clients[name] = {"client_id": client_id, "password": password}
+            response = ResponseMessage(1600, {"client_id": client_id})
+        else:
+            response = ResponseMessage(1601)
+
+        return response
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
