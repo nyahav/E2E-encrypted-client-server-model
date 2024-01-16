@@ -1,7 +1,8 @@
 import socket
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-from definitions import * 
+from Crypto.Util.Padding import pad,unpad
+from Definitions import * 
 
 def __init__(self, server_id, aes_key):
         self.server_id = server_id
@@ -15,13 +16,13 @@ class MessageServer:
 def handle_get_server_list(self, request):
         #  logic to return a list of servers
         server_list = [{"server_id": "server1", "server_name": "Message Server 1"}]
-        response = ResponseMessage(ResponseAuth.RESPONSE_MESSAGE_SERVERS, {"servers": server_list})
+        response = ResponseAuth(ResponseAuth.RESPONSE_MESSAGE_SERVERS, {"servers": server_list})
         return response
 
 def handle_get_aes_key(self, request):
         #  logic to return the symmetric key for a specific server
         client_id = request.payload["client_id"]
-        response = ResponseMessage(ResponseAuth.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
+        response = ResponseAuth(ResponseAuth.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
         return response
 
 # Function for encrypting a message using AES-CBC

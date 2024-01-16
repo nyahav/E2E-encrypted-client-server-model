@@ -50,9 +50,3 @@ class ResponseAuth(IntEnum):
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
    
-# The available messages' types the server is taking care of.
-class MessageTypes(IntEnum):
-    ASK_SYM_KEY = 1,
-    SEND_SYM_KEY = 2,
-    SEND_TEXT_MSG = 3,
-    SEND_TEXT_FILE = 4
