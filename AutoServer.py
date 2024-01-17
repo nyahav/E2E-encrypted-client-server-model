@@ -1,3 +1,4 @@
+import json
 import socket
 import threading
 import uuid
@@ -13,9 +14,6 @@ class AuthenticationServer:
        self.clients_file = "clients.txt"
        self.load_registered_devices()    
        
-   def generate_tgt(self):
-        return str(uuid.uuid4())  # Generate 16-byte random string as TGT
-
    def read_port_info(self):
        try:
            with open("port.info", "r") as file:
@@ -57,18 +55,18 @@ class AuthenticationServer:
         try:
             # Receive the request from the client
             request_data = client_socket.recv(1024).decode("utf-8")
-            request = parse_request(request_data)
+            request = self.parse_request(request_data)
 
             # Handle different types of requests
             if request.type == RequestAuth.REGISTER:
                 response = self.handle_register(request)
             elif request.type == RequestAuth.GET_TGT:
-                response = self.handle_get_tgt(request)
+                response = self.generate_unique_id(request)
             else:
-                response = (ResponseAuth.UNKNOWN_REQUEST_RESP,)
+                response = (ResponseAuth.GENERAL_ERROR,)
 
             # Send the response to the client
-            client_socket.sendall(serialize_response(response))
+            client_socket.sendall(self.serialize_response(response))
 
         except Exception as e:
             print(f"Error handling client: {e}")
@@ -77,7 +75,16 @@ class AuthenticationServer:
             # Close the client socket
             client_socket.close()
    
-   
+   def parse_request(self, request_data):
+        # Implement the logic to parse the request_data
+        parts = request_data.strip().split(":")
+        type = int(parts[0])
+        payload = parts[1]
+        return Request(type, payload)
+
+   def serialize_response(self, response):
+        # Implement the logic to serialize the response
+        return f"{response[0]}:{response[1]}"
    
    def update_last_seen(self, client_id):
         # Update the last_seen timestamp for a client
@@ -115,11 +122,11 @@ class AuthenticationServer:
         client_id = request.payload["client_id"]
         if client_id in self.tgt_cache:
             tgt = self.tgt_cache[client_id]
-            response = (ResponseAuth.GET_TGT_SUCCESS_RESP, {"tgt": tgt})
+            response = (ResponseAuth.APPROVE_MESSAGE_RECIVED, {"tgt": tgt})
         else:
             tgt = self.generate_tgt()
             self.tgt_cache[client_id] = tgt
-            response = (ResponseAuth.GET_TGT_SUCCESS_RESP, {"tgt": tgt})
+            response = (ResponseAuth. APPROVE_MESSAGE_RECIVED, {"tgt": tgt})
 
         return response
   
