@@ -1,7 +1,7 @@
-import json
-import socket
-import threading
 import uuid
+import socket
+import Request
+import threading
 from Definitions import *
 
 class AuthenticationServer:
@@ -89,7 +89,6 @@ class AuthenticationServer:
    def update_last_seen(self, client_id):
         # Update the last_seen timestamp for a client
         self.clients[client_id]["last_seen"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    
     
            
    def save_registered_devices(self):

@@ -1,17 +1,10 @@
-import socket
 import uuid
+import socket
+import Request
 import AutoServer
 import MessageServer
 from Definitions import *
 
-
-class Request:
-    def __init__(self, client_id, version, code, payload_size, payload):
-        self.client_id = client_id
-        self.version = version
-        self.code = code
-        self.payload_size = payload_size
-        self.payload = payload
 
 class Client:
     def __init__(self):
@@ -39,21 +32,6 @@ class Client:
             print("Error: me.info file not found.")
             exit()
 
-    def handle_register_request(self, request):
-        # Validate the request
-        if request.code != 1025:
-            return AutoServer(AutoServer.REGISTER_FAILURE_RESP)
-
-        # Get the client name and password
-        client_name = request.payload[:255]
-        password = request.payload[255:]
-
-        # Register the client with the authentication server
-        client_id = uuid.uuid4()
-        AutoServer.register_client(client_id, client_name, password)
-
-        return AutoServer(AutoServer.REGISTER_SUCCESS_RESP, client_id=client_id)
-
     def register_with_auth_server(self):
         # Create a request object
         request = Request(
@@ -63,12 +41,8 @@ class Client:
             payload_size=255 + len(self.client_name) + len(self.client_password),
             payload=self.client_name.encode() + self.client_password.encode()
         )
-
-        # Set the payload
         request.payload[:255] = self.client_name
         request.payload[255:] = self.client_password
-
-        # Send the request to the authentication server
         response = self.send_request(request)
 
         # Check the response code
@@ -88,7 +62,7 @@ class Client:
         request = Request(
             client_id=self.client_id,
             version=24,  
-            code=AutoServer. REQUEST_MESSAGE_SERVERS
+            code=ResponseAuth.RESPONSE_MESSAGE_SERVERS
             payload_size=0,  # No payload needed for this request
             payload=b""
         )
@@ -107,7 +81,7 @@ class Client:
         request = Request(
             client_id=self.client_id,
             version=24, 
-            code= AutoServer.RESPONSE_SYMETRIC_REQ
+            code= ResponseAuth.RESPONSE_SYMETRIC_REQ
             payload_size=len(server_id)
             payload=server_id.encode()  # Assuming server ID is a string
         )
