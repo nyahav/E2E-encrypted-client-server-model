@@ -102,3 +102,4 @@ if __name__ == "__main__":
     client.request_server_list()
     client.request_aes_key()
     client.communicate_with_message_server()
+    #SADASD

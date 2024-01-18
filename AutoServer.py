@@ -11,7 +11,7 @@ class AuthenticationServer:
        self.clients = {}
        self.devices = {}
        self.tgt_cache = {}
-       self.clients_file = "clients.txt"
+       self.clients_file = "clients.info"
        self.load_registered_devices()    
        
    def read_port_info(self):
@@ -26,7 +26,7 @@ class AuthenticationServer:
    def load_registered_devices(self):
        # Load registered devices from file (if exists)
        try:
-           with open("server.txt", "r") as file:
+           with open("server.info", "r") as file:
                for line in file:
                    device_data = line.strip().split(":")
                    device_id, device_name, aes_key = device_data
