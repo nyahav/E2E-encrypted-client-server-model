@@ -1,5 +1,6 @@
 # all defenitions
 from enum import *
+import struct
 
 # Constants
 
@@ -50,3 +51,5 @@ class ResponseAuth(IntEnum):
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
    
+
+     
