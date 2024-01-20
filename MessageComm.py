@@ -1,34 +1,24 @@
-from Definitions import *     
+from Definitions import Request
+import struct
 
-class Request:
-    
+HEADER_SIZE = "<16sHHI"
+
+class SpecificRequest(Request):  
     def __init__(self):
-        self.version = 24 
-    header = struct.Struct(
-        "!<I2I"  #  Version, Code, Payload size
-    )
-  
-    @classmethod
-    def pack(cls, version, code, payload):
-        header_data = cls.header.pack(
-            version, code, len(payload)
-        )
-        return header_data + payload
+        super().__init__()
     
-def REGISTER_SERVER():
-        username="name"
-        AES_symetric_key="AES_symetric_key"
-        payload = username.encode() + AES_symetric_key.encode()  # Encode strings as bytes
-        payload_size=len(payload)
-        request_data = Request.pack(client_id, version, 1027, payload_size,payload)
+    class MyRequest(Request):
+        
+        def register_server(self,username,AES):
+            payload = username.encode() + AES.encode()  
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1027, len(self.payload),payload)
+            return request_data
      
-def REQUEST_MESSAGE_SERVERS():
-         request_data = Request.pack(client_id, version, 1026, 0)
-     
-def GET_SYMETRIC_REQ():
-        client_ID="client_ID"
-        server_ID="server_ID"
-        nonce="8bits of random value"
-        payload = client_ID.encode() + server_ID.encode()+nonce.encode()  # Encode strings as bytes
-        payload_size=len(payload)
-        request_data = Request.pack(client_id, version, 1028, payload_size,payload) 
+        def request_message_servers(self):
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1026, 0) 
+            return request_data
+        
+        def get_symetric_req(self,client_ID,server_ID,nonce):
+            payload = client_ID.encode() + server_ID.encode()+nonce.encode()
+            request_data =struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1028,len(self.payload),payload)
+            return request_data

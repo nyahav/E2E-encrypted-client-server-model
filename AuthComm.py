@@ -1,51 +1,34 @@
-from Definitions import *
+from Definitions import Request
+import struct
 
+HEADER_SIZE = "<HHI"
 
-class Request:
-    
+class SpecificRequest(Request):  
     def __init__(self):
-        self.version = 24 
-    header = struct.Struct(
-        "!<I2I"  #  Version, Code, Payload size
-    )
-  
-    @classmethod
-    def pack(cls, version, code, payload):
-        header_data = cls.header.pack(
-            version, code, len(payload)
-        )
-        return header_data + payload
+        super().__init__()
     
-    
-    def REGISTER_SUCCESS_RESP(self):
-        client_ID="client_ID"
-        payload = client_ID.encode() # Encode strings as bytes,defult is UTF-8
-        payload_size=len(payload) 
-        request_data = Request.pack(self.version, 1600, payload_size,payload)
+    class MyRequest(Request):
         
-    def REGISTER_FAILURE_RESP(self):
-        client_ID="client_ID"
-        payload = client_ID.encode()
-        payload_size=len(payload) 
-        request_data = Request.pack(self.version, 1601, payload_size,payload)
+        def register_client_success(self,client_ID):
+            payload = client_ID.encode() 
+            request_data = struct.Struct(HEADER_SIZE).pack(self.version, 1600, len(self.payload),payload)
+            return request_data
+            
+        def register_client_failure(self,client_ID):
+            payload = client_ID.encode() 
+            request_data = struct.Struct(HEADER_SIZE).pack(self.version, 1601, len(self.payload),payload)
+            return request_data    
+   
+        def response_message_servers(self,server_ID):
+            payload = server_ID.encode() 
+            request_data = struct.Struct(HEADER_SIZE).pack(self.version, 1602, len(self.payload),payload)
+            return request_data    
+            #list may containe many server,can be calculate by :Payload Size/(16+255)
         
-    def RESPONSE_MESSAGE_SERVERS(self):
-        server_ID="server_ID"
-        payload = server_ID.encode()
-        payload_size=len(payload) 
-        request_data = Request.pack(self.version, 1602, payload_size,payload)
-        #list may containe many server,can be calculate by :Payload Size/(16+255)
+        def response_symetric_req(self,client_ID,AES,ticket):
+              payload = client_ID.encode()+AES.encode()+ticket.encode() 
+              request_data = Request.pack(self.version, 1603,len(self.payload),payload) 
+              return request_data
+            
+            
         
-    def  RESPONSE_SYMETRIC_REQ(self):
-        client_ID="client_ID"
-        AES_symetric_key="AES_symetric_key"
-        ticket="ticket"
-        payload = client_ID.encode()+AES_symetric_key.encode()+ticket.encode() 
-        payload_size=len(payload) 
-        request_data = Request.pack((self.version, 1603, payload_size,payload)    
-        
-        
-    REGISTER_SUCCESS_RESP = 1600,
-    REGISTER_FAILURE_RESP = 1601,
-    RESPONSE_MESSAGE_SERVERS=1602,
-    RESPONSE_SYMETRIC_REQ = 1603,

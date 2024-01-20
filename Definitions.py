@@ -1,4 +1,5 @@
 # all defenitions
+from abc import ABC, abstractmethod 
 from enum import *
 import struct
 
@@ -52,4 +53,25 @@ class ResponseAuth(IntEnum):
     GENERAL_ERROR=1609,
    
 
-     
+class Request(ABC):
+    def __init__(self):
+        self.version = 24
+        
+    @abstractmethod
+    def header(self):
+        pass
+
+    @classmethod
+    def pack(cls, client_id, version, code, payload):
+        header_data = cls.header.pack(
+            client_id, version, code, len(payload)
+        )
+        return header_data + payload
+
+class RegisterClient(Request):
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.len
+        
+reg1 = RegisterClient("user", "pass")        
