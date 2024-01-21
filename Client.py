@@ -1,6 +1,7 @@
+import secrets
 import uuid
-import socket
 import Request
+import ClientComm
 import AutoServer
 import MessageServer
 from Definitions import *
@@ -8,15 +9,25 @@ from Definitions import *
 
 class Client:
     def __init__(self):
-        self.auth_server_address = self.read_auth_server_address()
+        ip_address, port = self.read_auth_server_address()
+        self.auth_server_address = ip_address
+        self.auth_server_port = port
         self.client_id, self.client_name, self.client_aes_key = self.read_client_info()
         self.ticket = None
+        self.request_instance = ClientComm.SpecificRequest(auth_server_address=ip_address,auth_server_port=port)
 
     def read_auth_server_address(self):
         try:
             with open("me.info", "r") as file:
-                address = file.readline().strip()
-                return address
+                address_line = file.readline().strip()
+                # Split the line into IP address and port number
+                ip_address, port_str = address_line.split(':')
+                # Convert the port string to an integer
+                port = int(port_str)
+                # Return both IP address and port
+                
+                return ip_address, port
+
         except FileNotFoundError:
             print("Error: me.info file not found.")
             exit()
@@ -34,39 +45,27 @@ class Client:
 
     def register_with_auth_server(self):
         # Create a request object
-        request = Request(
-            client_id=self.client_id,
-            version=VERSION,
-            code=RequestAuth.REGISTER_CLIENT,
-            payload_size=255 + len(self.client_name) + len(self.client_password),
-            payload=self.client_name.encode() + self.client_password.encode()
-        )
-        request.payload[:255] = self.client_name
-        request.payload[255:] = self.client_password
-        response = self.send_request(request)
+        username = input("Enter username: ")
+        password = input("Enter password: ")
+        request_data = self.request_instance.register_client(username, password)
 
-        # Check the response code
-        if response.code != 1600:
+        # Send the request to the authentication server and receive the response
+        self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
+        response = self.request_instance.send_request(request_data)
+
+        if response['Code'] != 1600:
             print("Error: Registration failed.")
             return
 
         # Save the client ID
-        self.client_id = response.client_id
+        self.client_id = response['Payload']['client_id']
 
         print("Registration successful.")
 
     def request_server_list(self):
-    #Requests the list of servers from the authentication server.
-
-    # Create a request object with appropriate code for server list request
-        request = Request(
-            client_id=self.client_id,
-            version=24,  
-            code=ResponseAuth.RESPONSE_MESSAGE_SERVERS
-            payload_size=0,  # No payload needed for this request
-            payload=b""
-        )
-
+        #Requests the list of servers from the authentication server.
+        request_data=self.request_instance.request_message_server(self)
+        
         # Send the request to the authentication server
         response = self.send_request(request)
 
@@ -74,17 +73,12 @@ class Client:
         server_list = response.payload  # Assuming payload holds the server list
         # Do something with the server list here
 
-    def request_aes_key(self, server_id):
+    def request_aes_key(self,client_ID, server_ID):
     #Requests an AES key from the authentication server for a specific server.
-
-        # Create a request object with appropriate code for AES key request
-        request = Request(
-            client_id=self.client_id,
-            version=24, 
-            code= ResponseAuth.RESPONSE_SYMETRIC_REQ
-            payload_size=len(server_id)
-            payload=server_id.encode()  # Assuming server ID is a string
-        )
+        nonce_length = 8
+        nonce=secrets.token_bytes(nonce_length)
+        request_data=self.request_instance.request_aes_key(self,client_ID,server_ID,nonce)
+        
         # Send the request to the authentication server
         response = self.send_request(request)
         # Process the response, assuming it contains the AES key

@@ -67,11 +67,26 @@ class Request(ABC):
             client_id, version, code, len(payload)
         )
         return header_data + payload
+    
+    @classmethod
+    def unpack_response(cls, response_payload):
+        # Implement the unpacking logic for the response payload
+        header_size = struct.calcsize(cls.header.format)
+        header = struct.unpack(cls.header.format, response_payload[:header_size])
 
-class RegisterClient(Request):
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-        self.len
+        server_response = {
+            'Version': header[1],
+            'Code': header[2],
+            'Payload_Size': header[3],
+            'Payload': response_payload[header_size:],
+        }
+
+        return server_response
+
+#class RegisterClient(Request):
+   # def __init__(self, username, password):
+    #    self.username = username
+    #   self.password = password
+ #   self.len
         
-reg1 = RegisterClient("user", "pass")        
+#reg1 = RegisterClient("user", "pass")        

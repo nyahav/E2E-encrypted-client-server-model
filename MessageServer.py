@@ -48,7 +48,8 @@ def handle_get_aes_key(self, request):
         client_id = request.payload["client_id"]
         response = ResponseAuth(ResponseAuth.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
         return response
-
+    
+#move both function into class so can be access from all entnties
 # Function for encrypting a message using AES-CBC
 def encrypt_message(message, key, iv):
     cipher = AES.new(key, AES.MODE_CBC, iv)

@@ -108,7 +108,7 @@ class AuthenticationServer:
         if name not in self.clients:
             client_id = self.generate_unique_id()
             self.clients[name] = {"client_id": client_id, "password": password}
-
+            #need to remove tgt
             tgt = self.generate_tgt()  
             self.tgt_cache[tgt] = client_id
 

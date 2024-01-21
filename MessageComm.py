@@ -22,3 +22,13 @@ class SpecificRequest(Request):
             payload = client_ID.encode() + server_ID.encode()+nonce.encode()
             request_data =struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1028,len(self.payload),payload)
             return request_data
+        
+        def approve_aes_recived(self):
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1604, 0) 
+            return request_data
+        def approve_message_recived(self):
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1605, 0) 
+            return request_data
+        def general_error(self):
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1609, 0) 
+            return request_data
