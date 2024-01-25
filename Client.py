@@ -14,6 +14,7 @@ class Client:
         self.auth_server_address = ip_address
         self.auth_server_port = port
         self.client_ID, self.clientName, self.client_aes_key = self.read_client_info()
+        server_list=""
         self.ticket = None
         self.request_instance = ClientComm.SpecificRequest(client_address=ip_address,client_port=port)
 
@@ -35,7 +36,6 @@ class Client:
 
     def register_with_auth_server(self):
 
-        def inputChecker():
             username = input("Enter username: ")
             password = input("Enter password: ")
 
@@ -57,22 +57,23 @@ class Client:
             if not password.isalnum():
                 raise ValueError("Password must consist only of alphanumeric characters.")
 
-            return username, password
          
+            salted_username = username + '\0' * (255 - len(username))
+            salted_password = username + '\0' * (255 - len(username))
         
-        request_data = self.request_instance.register_client(inputChecker.username, inputChecker.password)
+            request_data = self.request_instance.register_client(salted_username,salted_password)
 
-        # Send the request to the authentication server and receive the response
-        self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
-        response = self.request_instance.send_request(request_data)
+            # Send the request to the authentication server and receive the response
+            self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
+            response = self.request_instance.send_request(request_data)
 
-        if response['Code'] != 1600:
-            print("Error: Registration failed.")
-            return
+            if response['Code'] != 1600:
+                print("Error: Registration failed.")
+                return
 
-        # Save the client ID
-        self.client_id = response['Payload']['client_id']
-        print("Registration successful.")
+            # Save the client ID
+            self.client_id = response['Payload']['client_id']
+            print("Registration successful.")
 
     def parse_server_list(self, payload):
         server_list = []
@@ -107,6 +108,8 @@ class Client:
         # Process the response, assuming it contains a list of servers
         server_list = payload  # Assuming payload holds the server list
         # Do something with the server list here
+        
+
         return server_list
 
     def request_aes_key(self, client_ID, server_ID):
@@ -165,6 +168,8 @@ if __name__ == "__main__":
     client = Client()  # Indent this line properly
     client.register_with_auth_server()
     client.request_server_list()
-    client.request_aes_key()  # You'll need to provide client_ID and server_ID here
-    client.sending_aes_key_to_message_server()  # You'll need to provide client_ID, server_ID, and ticket here
-    client.messaging_the_message_server()  # You'll need to provide the IV here
+    server_list = client.request_server_list()
+    selected_server_id = 1  # Replace with the actual server ID you want to communicate with
+    client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id']) 
+    client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id'], ticket)) 
+    client.messaging_the_message_server(aes_key)  
