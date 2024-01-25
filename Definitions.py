@@ -1,5 +1,7 @@
 # all defenitions
+from abc import ABC, abstractmethod 
 from enum import *
+import struct
 
 # Constants
 
@@ -50,9 +52,41 @@ class ResponseAuth(IntEnum):
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
    
-# The available messages' types the server is taking care of.
-class MessageTypes(IntEnum):
-    ASK_SYM_KEY = 1,
-    SEND_SYM_KEY = 2,
-    SEND_TEXT_MSG = 3,
-    SEND_TEXT_FILE = 4
+
+class Request(ABC):
+    def __init__(self):
+        self.version = 24
+        
+    @abstractmethod
+    def header(self):
+        pass
+
+    @classmethod
+    def pack(cls, client_id, version, code, payload):
+        header_data = cls.header.pack(
+            client_id, version, code, len(payload)
+        )
+        return header_data + payload
+    
+    @classmethod
+    def unpack_response(cls, response_payload):
+        # Implement the unpacking logic for the response payload
+        header_size = struct.calcsize(cls.header.format)
+        header = struct.unpack(cls.header.format, response_payload[:header_size])
+
+        server_response = {
+            'Version': header[1],
+            'Code': header[2],
+            'Payload_Size': header[3],
+            'Payload': response_payload[header_size:],
+        }
+
+        return server_response
+
+#class RegisterClient(Request):
+   # def __init__(self, username, password):
+    #    self.username = username
+    #   self.password = password
+ #   self.len
+        
+#reg1 = RegisterClient("user", "pass")        
