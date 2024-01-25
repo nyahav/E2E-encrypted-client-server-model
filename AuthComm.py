@@ -1,3 +1,4 @@
+import socket
 from Definitions import Request
 import struct
 
@@ -23,7 +24,7 @@ class SpecificRequest(Request):
             payload = server_ID.encode()+server_name.encode()
             request_data = struct.Struct(HEADER_SIZE).pack(self.version, 1602, len(self.payload),payload)
             return request_data    
-            #list may containe many server,can be calculate by :Payload Size/(16+255)
+            
         
         def response_symetric_req(self,client_ID,AES,ticket):
               payload = client_ID.encode()+AES.encode()+ticket.encode() 
@@ -31,4 +32,19 @@ class SpecificRequest(Request):
               return request_data
             
             
-        
+        def send_request(self, request_data):
+            # Implement the code for sending a request to the server
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                # Connect to the authentication server
+                client_socket.connect((self.client_server_address, self.client_server_port))
+
+                # Send the request data
+                client_socket.sendall(request_data)
+
+                # Receive the response data
+                response_data = client_socket.recv(1024)
+
+            # Unpack the response using the unpack_response method from the Request class
+            response = self.unpack_response(response_data)
+
+            return response

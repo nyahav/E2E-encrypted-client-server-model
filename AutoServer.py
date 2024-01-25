@@ -5,16 +5,16 @@ import threading
 from Definitions import *
 
 class AuthenticationServer:
-   def __init__(self):
+    def __init__(self):
        self.port = self.read_port_info()
+       self.load_registered_devices()    
        self.load_clients()
        self.clients = {}
        self.devices = {}
        self.tgt_cache = {}
-       self.clients_file = "clients.info"
-       self.load_registered_devices()    
        
-   def read_port_info(self):
+       
+    def read_port_info(self):
        try:
            with open("port.info", "r") as file:
                port = int(file.read().strip())
@@ -23,7 +23,7 @@ class AuthenticationServer:
            print("Warning: port.info file not found. Using default port 1256.")
            return 1256
 
-   def load_registered_devices(self):
+    def load_registered_devices(self):
        # Load registered devices from file (if exists)
        try:
            with open("server.info", "r") as file:
@@ -34,24 +34,24 @@ class AuthenticationServer:
        except FileNotFoundError:
            pass  # File doesn't exist yet
     
-   def save_clients(self):
-        # Save client information to file
-        with open(self.clients_file, "w") as file:
-            for client_id, client_info in self.clients.items():
-                file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
-
-   def load_clients(self):
+  
+    def load_clients(self):
         # Load client information from file (if exists)
         try:
-            with open(self.clients_file, "r") as file:
+            with open("clients.info", "r") as file:
                 for line in file:
                     client_data = line.strip().split(":")
                     client_id, name, password_hash, last_seen = client_data
                     self.clients[client_id] = {"name": name, "password_hash": password_hash, "last_seen": last_seen}
         except FileNotFoundError:
             pass  # File doesn't exist yet
-   
-   def handle_client(self, client_socket):
+    def save_clients(self):
+        # Save client information to file
+        with open(self.clients_file, "w") as file:
+            for client_id, client_info in self.clients.items():
+                file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
+
+    def handle_client_registration(self, client_socket):
         try:
             # Receive the request from the client
             request_data = client_socket.recv(1024).decode("utf-8")
@@ -75,33 +75,33 @@ class AuthenticationServer:
             # Close the client socket
             client_socket.close()
    
-   def parse_request(self, request_data):
+    def parse_request(self, request_data):
         # Implement the logic to parse the request_data
         parts = request_data.strip().split(":")
         type = int(parts[0])
         payload = parts[1]
         return Request(type, payload)
 
-   def serialize_response(self, response):
+    def serialize_response(self, response):
         # Implement the logic to serialize the response
         return f"{response[0]}:{response[1]}"
    
-   def update_last_seen(self, client_id):
+    def update_last_seen(self, client_id):
         # Update the last_seen timestamp for a client
         self.clients[client_id]["last_seen"] = time.strftime("%Y-%m-%d %H:%M:%S")
     
            
-   def save_registered_devices(self):
+    def save_registered_devices(self):
        # Save registered devices to file
        with open("server.txt", "w") as file:
            for device_id, device_info in self.devices.items():
                file.write(f"{device_id}:{device_info['name']}:{device_info['aes_key']}\n")
 
-   def generate_unique_id(self):
+    def generate_unique_id(self):
        # TODO: Implement the protocol to generate unique id
         return str(uuid.uuid4())
 
-   def handle_register(self, request):
+    def handle_register(self, request):
         name = request.payload["name"]
         password = request.payload["password"]
 
@@ -117,7 +117,7 @@ class AuthenticationServer:
             response = (ResponseAuth.REGISTER_FAILURE_RESP)
 
         return response
-   def handle_get_tgt(self, request):
+    def handle_get_tgt(self, request):
         client_id = request.payload["client_id"]
         if client_id in self.tgt_cache:
             tgt = self.tgt_cache[client_id]
@@ -129,7 +129,7 @@ class AuthenticationServer:
 
         return response
   
-   def start(self):
+    def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(("localhost", self.port))
         server_socket.listen(5)
@@ -137,7 +137,7 @@ class AuthenticationServer:
 
         while True:
             client_socket, addr = server_socket.accept()
-            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
+            client_thread = threading.Thread(target=self.handle_client_registration, args=(client_socket,))
             client_thread.start()
 
 if __name__ == "__main__":

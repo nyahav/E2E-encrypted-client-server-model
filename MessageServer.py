@@ -6,6 +6,13 @@ from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad,unpad
 from Definitions import * 
 
+class AuthenticationServer:
+    def __init__(self):
+        self.read_server_info()   
+        self.port="port"
+        self.server_name=" "
+        self.server_ID=" "
+        
 def read_server_info(self):
     try:
         with open("msg.info", "r") as file:
@@ -23,7 +30,7 @@ def write_server_info(self):
     with open("msg.info", "w") as file:
         file.write(f"{self.port}\n")
         file.write(f"{self.server_name}\n")
-        file.write(f"{self.server_id}\n")
+        file.write(f"{self.server_ID}\n")
         file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
         
 def __init__(self, server_id, aes_key):
