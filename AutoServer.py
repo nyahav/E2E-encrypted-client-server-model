@@ -1,8 +1,9 @@
+import time
 import uuid
 import socket
-import Request
 import threading
 from Definitions import *
+from basicFunctions import encrypt_message,get_random_bytes
 
 class AuthenticationServer:
     def __init__(self):
@@ -11,7 +12,7 @@ class AuthenticationServer:
        self.load_clients()
        self.clients = {}
        self.devices = {}
-       self.tgt_cache = {}
+     
        
        
     def read_port_info(self):
@@ -60,8 +61,6 @@ class AuthenticationServer:
             # Handle different types of requests
             if request.type == RequestAuth.REGISTER:
                 response = self.handle_register(request)
-            elif request.type == RequestAuth.GET_TGT:
-                response = self.generate_unique_id(request)
             else:
                 response = (ResponseAuth.GENERAL_ERROR,)
 
@@ -102,33 +101,54 @@ class AuthenticationServer:
         return str(uuid.uuid4())
 
     def handle_register(self, request):
-        name = request.payload["name"]
+        username = request.payload["username"]
         password = request.payload["password"]
 
-        if name not in self.clients:
+        if username not in self.clients:
             client_id = self.generate_unique_id()
-            self.clients[name] = {"client_id": client_id, "password": password}
-            #need to remove tgt
-            tgt = self.generate_tgt()  
-            self.tgt_cache[tgt] = client_id
-
-            response = (ResponseAuth.REGISTER_SUCCESS_RESP, {"client_id": client_id, "tgt": tgt})
+            self.clients[username] = {"client_id": client_id, "password": password}
+            
+            response = (ResponseAuth.REGISTER_SUCCESS_RESP, {"client_id": client_id})
         else:
             response = (ResponseAuth.REGISTER_FAILURE_RESP)
 
         return response
-    def handle_get_tgt(self, request):
+    
+    
+    def handle_get_aes_key(self, request):
+        
         client_id = request.payload["client_id"]
-        if client_id in self.tgt_cache:
-            tgt = self.tgt_cache[client_id]
-            response = (ResponseAuth.APPROVE_MESSAGE_RECIVED, {"tgt": tgt})
-        else:
-            tgt = self.generate_tgt()
-            self.tgt_cache[client_id] = tgt
-            response = (ResponseAuth. APPROVE_MESSAGE_RECIVED, {"tgt": tgt})
+        server_id = request.payload["server_id"]
+        nonce = request.payload["nonce"]
 
-        return response
-  
+        # Retrieve the client's symmetric key (assuming you have a mechanism to store and retrieve it)
+        client_key = self.get_client_key(client_id)
+
+        # Generate the AES key for the client and server
+        aes_key = get_random_bytes(32)
+
+        # Create the encrypted key for the server
+        encrypted_key_iv = get_random_bytes(16)
+        encrypted_key = encrypt_message(aes_key + nonce, client_key, encrypted_key_iv)
+
+        # Create the ticket for the client
+        ticket_iv = get_random_bytes(16)
+        creation_time = int(time.time())
+        expiration_time = creation_time + self.ticket_expiration_time
+        ticket_data = struct.pack("<BI16s16sQ16s32sQ",
+                             24,  # Version (1 byte)
+                             client_id.encode(),  # Client ID (16 bytes)
+                             server_id.encode(),  # Server ID (16 bytes)
+                             creation_time,  # Creation time (8 bytes)
+                             ticket_iv,  # Ticket IV (16 bytes)
+                             encrypt_message(aes_key, self.messaging_server_key, ticket_iv),  # Encrypted AES key (32 bytes)
+                             expiration_time)  # Expiration time (8 bytes)
+
+        encrypted_ticket = encrypt_message(ticket_data, client_key, get_random_bytes(16))
+
+        return client_id, encrypted_key + encrypted_key_iv, encrypted_ticket
+
+
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(("localhost", self.port))

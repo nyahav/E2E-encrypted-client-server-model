@@ -5,6 +5,7 @@ import ClientComm
 import AutoServer
 import MessageServer
 from Definitions import *
+from basicFunctions import encrypt_message,get_random_bytes
 
 
 class Client:
@@ -33,10 +34,33 @@ class Client:
             exit()
 
     def register_with_auth_server(self):
-        # Create a request object
-        username = input("Enter username: ")
-        password = input("Enter password: ")
-        request_data = self.request_instance.register_client(username, password)
+
+        def inputChecker():
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+
+            # Add null terminator if missing
+            if username[-1] != '\0':
+                username += '\0'
+            if password[-1] != '\0':
+                password += '\0'
+
+            # Validate username
+            if len(username) < 5 or len(username) > 30:
+                raise ValueError("Username must be between 5 and 30 characters long.")
+            if not username.isalnum():
+                raise ValueError("Username must consist only of alphanumeric characters.")
+
+            # Validate password
+            if len(password) < 8 or len(password) > 30:
+                raise ValueError("Password must be between 8 and 30 characters long.")
+            if not password.isalnum():
+                raise ValueError("Password must consist only of alphanumeric characters.")
+
+            return username, password
+         
+        
+        request_data = self.request_instance.register_client(inputChecker.username, inputChecker.password)
 
         # Send the request to the authentication server and receive the response
         self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
@@ -85,40 +109,62 @@ class Client:
         # Do something with the server list here
         return server_list
 
-    
-    def request_aes_key(self,client_ID, server_ID):
+    def request_aes_key(self, client_ID, server_ID):
     #Requests an AES key from the authentication server for a specific server.
+
         nonce_length = 8
-        nonce=secrets.token_bytes(nonce_length)
-        request_data=self.request_instance.request_aes_key(self,client_ID,server_ID,nonce)
-        
+        nonce = secrets.token_bytes(nonce_length)
+        request_data = self.request_instance.request_aes_key(self, client_ID, server_ID, nonce)
+
         # Send the request to the authentication server
-        response = self.request_instance.send_request(request)
+        response = self.request_instance.send_request(request_data)
+
         # Process the response, assuming it contains the AES key
         aes_key = response.payload  # Assuming payload holds the AES key
+
         # Store or use the AES key for communication with the specified server
 
-    def sending_aes_key_to_message_server(self,client_ID,server_ID):
-        timeStamp=time.time()
-        #authenticator inculde:version,clientID,serverID,timestamp.all of them are encrypted by the symeric key of the reciver.
-        authenticator=
-        ticket=
-        request_data=self.request_instance.request_aes_key(self,authenticator,ticket)
-        
-    def messaging_the_message_server(self,iv):
-        # TODO: Implement communication with the message server using the obtained AES key
-        
+    def sending_aes_key_to_message_server(self, client_ID, server_ID, ticket):
+        """Sends an authenticator and ticket to the messaging server."""
+
+        time_stamp = time.time()
+       
+        # Pack the authenticator data using struct
+        authenticator_data = struct.pack("<BI16s16sQ",
+                                        24,  # Version (1 byte)
+                                        client_ID.encode(),  # Client ID (16 bytes)
+                                        server_ID.encode(),  # Server ID (16 bytes)
+                                        int(time_stamp))  # Creation time (8 bytes)
+        authenticator = encrypt_message(authenticator_data, self.messaging_server_key, get_random_bytes(16))
+
+        # Create the request data
+        request_data = authenticator + ticket
+
+        return request_data
+
+    def messaging_the_message_server(self, aes_key):
+       
         message = input("Enter your message: ")
-        #need to implement a function to enctypt the message using a symetric key created by the Authentication server
-        encrypted_message=
-        request_data=self.request_instance.request_aes_key(self,len(encrypted_message),iv,encrypted_message)
-        pass
+
+        # Generate a random 16-byte IV (initialization vector)
+        iv = secrets.token_bytes(16)
+
+        # Encrypt the message using AES-CBC mode
+        encrypted_message = encrypt_message(message.encode(), aes_key, iv)
+
+        # Prepend the 4-byte message size (assuming little-endian)
+        request_data = len(encrypted_message).to_bytes(4, "little") + iv + encrypted_message
+
+        # Send the request data to the message server
+        self.request_instance.send_request(request_data)
+
+        encrypted_message = encrypt_message(message, aes_key, iv)  # Assuming `encrypt_message` is defined
+        request_data = self.request_instance.request_aes_key(self, len(encrypted_message), iv, encrypted_message)
 
 if __name__ == "__main__":
-    client = Client()
+    client = Client()  # Indent this line properly
     client.register_with_auth_server()
     client.request_server_list()
-    client.request_aes_key()
-    client.sending_aes_key_to_message_server()
-    client.messaging_the_message_server()
-    
+    client.request_aes_key()  # You'll need to provide client_ID and server_ID here
+    client.sending_aes_key_to_message_server()  # You'll need to provide client_ID, server_ID, and ticket here
+    client.messaging_the_message_server()  # You'll need to provide the IV here
