@@ -1,9 +1,6 @@
 import os
 import base64
 import socket
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import pad,unpad
 from Definitions import *
 from basicFunctions import *
      
@@ -61,33 +58,33 @@ def receive_aes_key_from_client(self,sock,authenticator, ticket):
         decrypted_message = decrypt_message(encrypted_message, aes_key, iv)
 
         # Send back a success response (code 1604)
-        send_response(sock, "1604")  # Assuming you have a function to send responses
+        send_request(sock, ResponseAuth.APPROVE_SYMETRIC_KEY)  # Assuming you have a function to send responses
 
         print(f"Received message: {decrypted_message.decode()}")
     except Exception as e:
         # Send back an error response (code 1609)
-        send_response(sock, "1609")
+        send_request(sock, ResponseAuth.GENERAL_ERROR)
         print(f"Error handling message: {e}")
 
 # Function to receive a message from the client
-def receive_message_from_client(self):
-        message_size = receive_request(sock)[:4]
+def receive_message_from_client(self,sock):
+    try:
+        message_size = receive_response(sock)[:4]
         message_size = int.from_bytes(message_size, "little")
-        message_iv = receive_request(sock)[:16]
-        message_content = receive_request(sock)
+        message_iv = receive_response(sock)[:16]
+        message_content = receive_response(sock)
 
         # Decrypt the message content using the message server's symmetric key
         aes_key = message_server.aes_key
         decrypted_message = decrypt_message(message_content, aes_key, message_iv)
 
         # Send back an acknowledgement (code 1605)
-        send_request(sock, "1605")
+        send_request(sock, ResponseAuth.APPROVE_MESSAGE_RECIVED)
 
         print(f"Received message: {decrypted_message.decode()}")
-        except Exception as e:
-        # Send back an error response (code 1609)
-          send_request(sock, "1609")
-        print(f"Error handling message: {e}")
+    except Exception as e:
+          send_request(sock, ResponseAuth.GENERAL_ERROR)  # Send error response
+          print(f"Error handling message: {e}")
     
 
 
