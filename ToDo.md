@@ -5,5 +5,5 @@ omer-going over the code and understaing the flow.
 
 
 not clear to Yahav-
-password hash:where need to do and where to save
+password hash:where need to do and where to save-client input password sent to auth and he hash it and save it
 message server registration 

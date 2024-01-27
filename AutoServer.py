@@ -5,6 +5,7 @@ import threading
 from Definitions import *
 from basicFunctions import encrypt_message,get_random_bytes
 
+#client list need to be global
 class AuthenticationServer:
     def __init__(self):
        self.port = self.load_port_info()
@@ -59,6 +60,7 @@ class AuthenticationServer:
             request = self.parse_request(request_data)
 
             # Handle different types of requests
+            #CORRECT THIS
             if request.type == RequestAuth.REGISTER:
                 response = self.handle_client_connection(request)
             else:
@@ -89,6 +91,7 @@ class AuthenticationServer:
     def update_last_seen(self, client_id):
         # Update the last_seen timestamp for a client
         self.clients[client_id]["last_seen"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        #need to add saving into memory
     
            
     def save_registered_devices(self):
@@ -116,7 +119,7 @@ class AuthenticationServer:
         return response
     
     
-    def handle_get_aes_key(self, request):
+    def handle_request_get_aes_key(self, request):
         
         client_id = request.payload["client_id"]
         server_id = request.payload["server_id"]
@@ -155,7 +158,7 @@ class AuthenticationServer:
         server_socket.bind(("localhost", self.port))
         server_socket.listen(5)
         print(f"Authentication server listening on port {self.port}...")
-
+    #consider adding switch case for requests
         while True:
             client_socket, addr = server_socket.accept()
             client_thread = threading.Thread(target=self.handle_client_registration, args=(client_socket,))

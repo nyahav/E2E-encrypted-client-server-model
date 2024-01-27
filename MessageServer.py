@@ -13,7 +13,7 @@ class MessageServer:
    
 
 def read_server_info(self):
-    with open("msg1.info", "r") as f:
+    with open("msg{mServer}.info", "r") as f:
         lines = f.readlines()
         if len(lines) >= 4:
             (self.IP, self.port) = lines[0].strip().split(":")
@@ -23,7 +23,7 @@ def read_server_info(self):
             self.port = int(self.port)       
         
 def write_server_info(self):
-    with open("msg.info", "w") as file:
+    with open("msg{mServer}.info", "w") as file:
         file.write(f"{self.port}\n")
         file.write(f"{self.server_name}\n")
         file.write(f"{self.server_ID}\n")

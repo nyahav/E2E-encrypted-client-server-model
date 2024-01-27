@@ -2,7 +2,7 @@ import secrets
 import time
 import ClientComm
 from Definitions import *
-from basicFunctions import encrypt_message,get_random_bytes
+from basicFunctions import encrypt_message,get_random_bytes, send_request
 
 
 class Client:
@@ -32,7 +32,8 @@ class Client:
             exit()
 
     def register_with_auth_server(self):
-
+            #take this out to anouther function to combine with read_client_info
+            
             username = input("Enter username: ")
             password = input("Enter password: ")
 
@@ -63,7 +64,7 @@ class Client:
             # Send the request to the authentication server and receive the response
             self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
             response = self.request_instance.send_request(request_data)
-
+               #/not need to be hard coded
             if response['Code'] != 1600:
                 print("Error: Registration failed.")
                 return
@@ -99,7 +100,7 @@ class Client:
         request_data = self.request_instance.request_message_server(self)
         
         # Send the request to the authentication server
-        response = self.send_request(request_data)
+        response = send_request(request_data)
         payload = self.parse_server_list(response)
         # list may contain many servers, can be calculated by: Payload Size / (1 + 255)
         # Process the response, assuming it contains a list of servers
