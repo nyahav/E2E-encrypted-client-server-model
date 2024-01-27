@@ -6,7 +6,7 @@ import struct
 # Constants
 
 # Values
-VERSION = 1
+VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
 MAX_PORT_VALUE = 65535
@@ -28,6 +28,29 @@ REQUEST_HEADER_LEN = CLIENT_ID_LEN + VERSION_LEN + CODE_LEN + PAYLOADSIZE_LEN
 #Response Lengths
 RESPONSE_HEADER_LEN=VERSION_LEN+CODE_LEN+PAYLOADSIZE_LEN
 
+# The available request codes which are taking care by the authentication server.
+class RequestAuth(IntEnum):
+    REGISTER_CLIENT = 1025,
+    REGISTER_SERVER = 1027,
+    REQUEST_MESSAGE_SERVERS=1026,
+    GET_SYMETRIC_REQ = 1027,
+    
+# The available request codes which are taking care by the message server.
+class RequestAuth(IntEnum):
+    GET_SYMETRIC_REQ = 1028, 
+    SEND_MESSAGE = 1029, 
+
+# The available response codes which the authentication server can send to a client.
+class ResponseAuth(IntEnum):
+    REGISTER_SUCCESS_RESP = 1600,
+    REGISTER_FAILURE_RESP = 1601,
+    RESPONSE_MESSAGE_SERVERS=1602,
+    RESPONSE_SYMETRIC_REQ = 1603,
+ # The available response codes which the authentication server can send to a client.
+class ResponseAuth(IntEnum):
+    APPROVE_SYMETRIC_KEY = 1604,
+    APPROVE_MESSAGE_RECIVED = 1605,
+    GENERAL_ERROR=1609,
 
 class Request(ABC):
     def __init__(self):

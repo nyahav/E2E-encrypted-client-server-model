@@ -1,9 +1,6 @@
 import secrets
 import time
-import uuid
 import ClientComm
-import AutoServer
-import MessageServer
 from Definitions import *
 from basicFunctions import encrypt_message,get_random_bytes
 
@@ -123,7 +120,7 @@ class Client:
         response = self.request_instance.send_request(request_data)
 
         # Process the response, assuming it contains the AES key
-        aes_key = response.payload  # Assuming payload holds the AES key
+        self.aes_key = response.payload  # Assuming payload holds the AES key
 
         # Store or use the AES key for communication with the specified server
 
@@ -171,5 +168,5 @@ if __name__ == "__main__":
     server_list = client.request_server_list()
     selected_server_id = 1  # Replace with the actual server ID you want to communicate with
     client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id']) 
-    client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id'], ticket)) 
-    client.messaging_the_message_server(aes_key)  
+    client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id']) 
+    client.messaging_the_message_server(client.aes_key)  

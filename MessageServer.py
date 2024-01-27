@@ -9,17 +9,21 @@ from basicFunctions import *
      
 class MessageServer:
     def __init__(self, mServer_num):
-            with open("msg1.info", "r") as f:
-                lines = f.readlines()
-                if len(lines) >= 4:
-                    (self.IP,self.port) =lines[0].strip().split(":")
-                    self.server_name = lines[1].strip()
-                    self.server_id = lines[2].strip()
-                    self.symmetric_key = base64.b64decode(lines[3].strip())
+            self.IP="127.0.0.1"
+            self.port="1234"
+            self.read_server_info()  # Read info from msg.info
 
-                    self.port = int(self.port) 
+   
 
-       
+def read_server_info(self):
+    with open("msg1.info", "r") as f:
+        lines = f.readlines()
+        if len(lines) >= 4:
+            (self.IP, self.port) = lines[0].strip().split(":")
+            self.server_name = lines[1].strip()
+            self.server_id = lines[2].strip()
+            self.symmetric_key = base64.b64decode(lines[3].strip())
+            self.port = int(self.port)       
         
 def write_server_info(self):
     with open("msg.info", "w") as file:
@@ -88,34 +92,19 @@ def receive_message_from_client(self):
 
 
 def main():
-    server_address = ('127.0.0.1', 1234)  # Replace with the appropriate server details
+    server_address = (self.IP, self.port)  # Use server info from msg.info
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(server_address)
+    sock.bind(server_address)
+    sock.listen(1)
 
-    username = "user123"
-    register_to_auth_server(sock, username)
-
-    get_message_servers_list(sock)
-
-    server_id = "server1"  # Choose a server from the list
-    aes_key = get_aes_key_from_message_server(sock, server_id)
-    if aes_key:
-        ticket = "12345"  # Replace with actual ticket details
-        message_to_send = "Hello, server!"
-        send_message_to_server(sock, message_to_send, aes_key, ticket)
-
-        receive_message_from_server(sock, aes_key, ticket)
-
-        # Update server information and write it to msg.info
-        message_server.server_name = "NewServerName"
-        message_server.symmetric_key = get_new_symmetric_key()
-        message_server.write_server_info()
-
-    sock.close()
+    while True:
+        client_sock, client_address = sock.accept()
+        try:
+            message_server.handle_client_request(client_sock)
+        finally:
+            client_sock.close()
 
 if __name__ == "__main__":
     server_id = "server1"
-    aes_key = get_aes_key_from_message_server(sock, server_id)
-    message_server = MessageServer(server_id, aes_key)
-    message_server.write_server_info()  # Write initial server information to msg.info
+    message_server = MessageServer(server_id)
     main()

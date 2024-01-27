@@ -7,7 +7,7 @@ from basicFunctions import encrypt_message,get_random_bytes
 
 class AuthenticationServer:
     def __init__(self):
-       self.port = self.read_port_info()
+       self.port = self.load_port_info()
        self.load_registered_devices()    
        self.load_clients()
        self.clients = {}
@@ -15,7 +15,7 @@ class AuthenticationServer:
      
        
        
-    def read_port_info(self):
+    def load_port_info(self):
        try:
            with open("port.info", "r") as file:
                port = int(file.read().strip())
@@ -35,7 +35,6 @@ class AuthenticationServer:
        except FileNotFoundError:
            pass  # File doesn't exist yet
     
-  
     def load_clients(self):
         # Load client information from file (if exists)
         try:
@@ -46,9 +45,10 @@ class AuthenticationServer:
                     self.clients[client_id] = {"name": name, "password_hash": password_hash, "last_seen": last_seen}
         except FileNotFoundError:
             pass  # File doesn't exist yet
+        
     def save_clients(self):
         # Save client information to file
-        with open(self.clients_file, "w") as file:
+        with open("clients.info", "w") as file:
             for client_id, client_info in self.clients.items():
                 file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
 
@@ -60,12 +60,12 @@ class AuthenticationServer:
 
             # Handle different types of requests
             if request.type == RequestAuth.REGISTER:
-                response = self.handle_register(request)
+                response = self.handle_client_connection(request)
             else:
                 response = (ResponseAuth.GENERAL_ERROR,)
 
             # Send the response to the client
-            client_socket.sendall(self.serialize_response(response))
+            client_socket.send_request(self.serialize_response(response))
 
         except Exception as e:
             print(f"Error handling client: {e}")
@@ -82,7 +82,8 @@ class AuthenticationServer:
         return Request(type, payload)
 
     def serialize_response(self, response):
-        # Implement the logic to serialize the response
+        # It's responsible for converting a response object, which contains both a response code and an optional payload,
+        # into a string format that can be transmitted over the network to the client.
         return f"{response[0]}:{response[1]}"
    
     def update_last_seen(self, client_id):
@@ -97,10 +98,10 @@ class AuthenticationServer:
                file.write(f"{device_id}:{device_info['name']}:{device_info['aes_key']}\n")
 
     def generate_unique_id(self):
-       # TODO: Implement the protocol to generate unique id
+       
         return str(uuid.uuid4())
 
-    def handle_register(self, request):
+    def handle_client_connection(self, request):
         username = request.payload["username"]
         password = request.payload["password"]
 
