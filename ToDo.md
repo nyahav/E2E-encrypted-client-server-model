@@ -5,5 +5,8 @@ omer-going over the code and understaing the flow.
 
 
 not clear to Yahav-
-password hash:where need to do and where to save-client input password sent to auth and he hash it and save it
+password hash:where need to do and where to save-
+omer explaition-client send a non-encrpyted password,auth hash it(sha) and save it
+
+
 message server registration 

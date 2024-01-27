@@ -3,16 +3,16 @@ import uuid
 import socket
 import threading
 from Definitions import *
-from basicFunctions import encrypt_message,get_random_bytes
+from basicFunctions import encrypt_message,get_random_bytes, receive_response, send_request
 
 #client list need to be global
 class AuthenticationServer:
     def __init__(self):
        self.port = self.load_port_info()
-       self.load_registered_devices()    
+       self.load_registered_servers()    
        self.load_clients()
        self.clients = {}
-       self.devices = {}
+       self.servers = {}
      
        
        
@@ -25,14 +25,14 @@ class AuthenticationServer:
            print("Warning: port.info file not found. Using default port 1256.")
            return 1256
 
-    def load_registered_devices(self):
-       # Load registered devices from file (if exists)
+    def load_registered_servers(self):
+       # Load registered servers from file (if exists)
        try:
            with open("server.info", "r") as file:
                for line in file:
-                   device_data = line.strip().split(":")
-                   device_id, device_name, aes_key = device_data
-                   self.devices[device_id] = {"name": device_name, "aes_key": aes_key}
+                   server_data = line.strip().split(":")
+                   server_id, server_name, aes_key = server_data
+                   self.server[server_id] = {"name": server_name, "aes_key": aes_key}
        except FileNotFoundError:
            pass  # File doesn't exist yet
     
@@ -53,27 +53,29 @@ class AuthenticationServer:
             for client_id, client_info in self.clients.items():
                 file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
 
-    def handle_client_registration(self, client_socket):
+    def handle_client_requests(self, client_socket):
         try:
             # Receive the request from the client
             request_data = client_socket.recv(1024).decode("utf-8")
             request = self.parse_request(request_data)
 
-            # Handle different types of requests
-            #CORRECT THIS
+            # Use a switch case or if-elif statements to handle different request types
             if request.type == RequestAuth.REGISTER:
-                response = self.handle_client_connection(request)
+                response = self.handle_client_registration(request)
+            elif request.type == RequestAuth.GET_AES_KEY:
+                client_id, encrypted_key, encrypted_ticket = self.handle_request_get_aes_key(request)
+                response = (ResponseAuth.AES_KEY_SUCCESS_RESP, {"client_id": client_id, "encrypted_key": encrypted_key, "encrypted_ticket": encrypted_ticket})
+            elif request.type == RequestAuth.GET_SERVER_LIST:
+                response = self.handle_request_server_list_(client_socket)
             else:
                 response = (ResponseAuth.GENERAL_ERROR,)
 
-            # Send the response to the client
-            client_socket.send_request(self.serialize_response(response))
+            client_socket.send(self.serialize_response(response))
 
         except Exception as e:
             print(f"Error handling client: {e}")
 
         finally:
-            # Close the client socket
             client_socket.close()
    
     def parse_request(self, request_data):
@@ -94,11 +96,11 @@ class AuthenticationServer:
         #need to add saving into memory
     
            
-    def save_registered_devices(self):
-       # Save registered devices to file
+    def save_registered_servers(self):
+       # Save registered servers to file
        with open("server.txt", "w") as file:
-           for device_id, device_info in self.devices.items():
-               file.write(f"{device_id}:{device_info['name']}:{device_info['aes_key']}\n")
+           for server_id, server_info in self.server.items():
+               file.write(f"{server_id}:{server_info['name']}:{server_info['aes_key']}\n")
 
     def generate_unique_id(self):
        
@@ -117,7 +119,6 @@ class AuthenticationServer:
             response = (ResponseAuth.REGISTER_FAILURE_RESP)
 
         return response
-    
     
     def handle_request_get_aes_key(self, request):
         
@@ -152,6 +153,14 @@ class AuthenticationServer:
 
         return client_id, encrypted_key + encrypted_key_iv, encrypted_ticket
 
+    def handle_request_server_list_(self, sock):
+        request = receive_response(sock)  # Receive the request
+
+        # Process the request and generate the server list
+        server_list = list(self.servers.values())  # Assuming self.servers is a dictionary of servers
+        response_data = self.response_instance.create_server_list_response(server_list)
+
+        send_request(sock, response_data)  # Send the response
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -161,7 +170,7 @@ class AuthenticationServer:
     #consider adding switch case for requests
         while True:
             client_socket, addr = server_socket.accept()
-            client_thread = threading.Thread(target=self.handle_client_registration, args=(client_socket,))
+            client_thread = threading.Thread(target=self.handle_client_requests, args=(client_socket,))
             client_thread.start()
 
 if __name__ == "__main__":

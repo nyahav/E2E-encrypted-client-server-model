@@ -1,12 +1,13 @@
 import secrets
+import socket
 import time
 import ClientComm
 from Definitions import *
-from basicFunctions import encrypt_message,get_random_bytes, send_request
+from basicFunctions import *
 
 
 class Client:
-    def __init__(self):
+    def __init__(self,auth_server_ip, auth_server_port, message_server_ip, message_server_port):
         ip_address, port = self.read_client_info()
         self.auth_server_address = ip_address
         self.auth_server_port = port
@@ -14,8 +15,21 @@ class Client:
         server_list=""
         self.ticket = None
         self.request_instance = ClientComm.SpecificRequest(client_address=ip_address,client_port=port)
+        #connections
+        self.auth_server_ip = auth_server_ip
+        self.auth_server_port = auth_server_port
+        self.message_server_ip = message_server_ip
+        self.message_server_port = message_server_port
 
+        # Create persistent connections
+        self.auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.auth_sock.connect((self.auth_server_ip, self.auth_server_port))
+        self.message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.message_sock.connect((self.message_server_ip, self.message_server_port))
 
+    def close_connections(self):
+        self.auth_sock.close()
+        self.message_sock.close()
 
     def read_client_info(self):
         try:
@@ -96,18 +110,12 @@ class Client:
         return server_list
 
     def request_server_list(self):
-        #Requests the list of servers from the authentication server.
         request_data = self.request_instance.request_message_server(self)
-        
-        # Send the request to the authentication server
-        response = send_request(request_data)
+        send_request(self.auth_sock, request_data)
+        response = receive_response(self.auth_sock)
         payload = self.parse_server_list(response)
-        # list may contain many servers, can be calculated by: Payload Size / (1 + 255)
-        # Process the response, assuming it contains a list of servers
-        server_list = payload  # Assuming payload holds the server list
-        # Do something with the server list here
-        
-
+        server_list = payload
+        print(f"Received server list: {server_list}")
         return server_list
 
     def request_aes_key(self, client_ID, server_ID):
@@ -163,7 +171,7 @@ class Client:
         request_data = self.request_instance.request_aes_key(self, len(encrypted_message), iv, encrypted_message)
 
 if __name__ == "__main__":
-    client = Client()  # Indent this line properly
+    client = Client("127.0.0.1", 1234, "127.0.0.1", 5678)  
     client.register_with_auth_server()
     client.request_server_list()
     server_list = client.request_server_list()
@@ -171,3 +179,4 @@ if __name__ == "__main__":
     client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id']) 
     client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id']) 
     client.messaging_the_message_server(client.aes_key)  
+    client.close_connections()

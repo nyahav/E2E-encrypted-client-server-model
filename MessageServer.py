@@ -102,6 +102,5 @@ def main():
             client_sock.close()
 
 if __name__ == "__main__":
-    server_id = "server1"
-    message_server = MessageServer(server_id)
+    message_server = MessageServer(mServer_num="server1")
     main()
