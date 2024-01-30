@@ -35,6 +35,43 @@ def write_server_info(self):
         response = ResponseAuth(ResponseAuth.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
         return response
 
+def handle_client_request(self, client_socket):
+    """Handles incoming client requests."""
+
+    try:
+        # Receive the request from the client
+        request_data = client_socket.recv(1024).decode("utf-8")
+        request = self.parse_request(request_data)  # Assuming you have a parsing function
+
+        # Handle different request types
+       
+        if request.type == RequestAuth. GET_SYMETRIC_REQ:
+            self.receive_aes_key_from_client(client_socket)  # Call the appropriate function
+        elif request.type == RequestAuth.SEND_MESSAGE:
+            self.receive_message_from_client(client_socket)  # Call the appropriate function
+        else:
+            response = (ResponseAuth.GENERAL_ERROR,)
+
+        client_socket.send(self.serialize_response(response))  # Assuming you have a serialization function
+
+    except Exception as e:
+        print(f"Error handling client: {e}")
+
+    finally:
+        client_socket.close()
+
+def parse_request(self, request_data):
+        # Implement the logic to parse the request_data
+        parts = request_data.strip().split(":")
+        type = int(parts[0])
+        payload = parts[1]
+        return Request(type, payload)
+
+def serialize_response(self, response):
+        # It's responsible for converting a response object, which contains both a response code and an optional payload,
+        # into a string format that can be transmitted over the network to the client.
+        return f"{response[0]}:{response[1]}"
+
 # Function to perform a registration request to the authentication server
 def register_to_auth_server(sock, username):
     request = f"REGISTER {username}"
@@ -88,7 +125,7 @@ def receive_message_from_client(self,sock):
     
 
 
-def main():
+def main(self):
     server_address = (self.IP, self.port)  # Use server info from msg.info
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
@@ -103,4 +140,4 @@ def main():
 
 if __name__ == "__main__":
     message_server = MessageServer(mServer_num="server1")
-    main()
+    message_server.main()

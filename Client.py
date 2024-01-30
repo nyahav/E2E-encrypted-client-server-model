@@ -8,13 +8,13 @@ from basicFunctions import *
 
 class Client:
     def __init__(self,auth_server_ip, auth_server_port, message_server_ip, message_server_port):
-        ip_address, port = self.read_client_info()
-        self.auth_server_address = ip_address
-        self.auth_server_port = port
-        self.client_ID, self.clientName, self.client_aes_key = self.read_client_info()
+      
+        self.client_ID, self.clientName, self.client_aes_key,self.ip_address, self.port = self.read_client_info()
+        self.auth_server_address = self.ip_address
+        self.auth_server_port = self.port
         server_list=""
         self.ticket = None
-        self.request_instance = ClientComm.SpecificRequest(client_address=ip_address,client_port=port)
+        self.request_instance = ClientComm.SpecificRequest(client_address=self.ip_address,client_port=self.port)
         #connections
         self.auth_server_ip = auth_server_ip
         self.auth_server_port = auth_server_port
@@ -27,15 +27,11 @@ class Client:
         self.message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.message_sock.connect((self.message_server_ip, self.message_server_port))
 
-    def close_connections(self):
-        self.auth_sock.close()
-        self.message_sock.close()
-
     def read_client_info(self):
         try:
             with open("me.info", "r") as file:
                 address = file.readline().strip()
-                ip_address, port_str = address.split(':')
+                ip_address, port_str = address.split(':')  
                 port = int(port_str)
                 
                 clientName = file.readline().strip()
@@ -115,8 +111,22 @@ class Client:
         response = receive_response(self.auth_sock)
         payload = self.parse_server_list(response)
         server_list = payload
-        print(f"Received server list: {server_list}")
         return server_list
+
+    def prompt_user_for_server_selection(server_list):
+        """Prompts the user to select a server from the provided list and validates their choice."""
+
+        while True:
+            print("Available servers:")
+            for i, server in enumerate(server_list):
+                print(f"{i + 1}. {server['server_name']} ({server['server_id']})")
+
+            try:
+                user_selection = int(input("Enter the number of the server you want to connect to: ")) - 1
+                selected_server_id = server_list[user_selection]['server_id']
+                return selected_server_id
+            except (IndexError, ValueError):
+                print("Invalid selection. Please enter a valid server number.")
 
     def request_aes_key(self, client_ID, server_ID):
     #Requests an AES key from the authentication server for a specific server.
@@ -170,12 +180,16 @@ class Client:
         encrypted_message = encrypt_message(message, aes_key, iv)  # Assuming `encrypt_message` is defined
         request_data = self.request_instance.request_aes_key(self, len(encrypted_message), iv, encrypted_message)
 
+    def close_connections(self):
+        self.auth_sock.close()
+        self.message_sock.close()
+
 if __name__ == "__main__":
     client = Client("127.0.0.1", 1234, "127.0.0.1", 5678)  
     client.register_with_auth_server()
     client.request_server_list()
     server_list = client.request_server_list()
-    selected_server_id = 1  # Replace with the actual server ID you want to communicate with
+    selected_server_id = client.prompt_user_for_server_selection(server_list)
     client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id']) 
     client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id']) 
     client.messaging_the_message_server(client.aes_key)  

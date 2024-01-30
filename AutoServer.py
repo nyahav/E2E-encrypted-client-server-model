@@ -15,7 +15,7 @@ class AuthenticationServer:
        self.servers = {}
      
        
-       
+       #initialize phase
     def load_port_info(self):
        try:
            with open("port.info", "r") as file:
@@ -53,7 +53,9 @@ class AuthenticationServer:
             for client_id, client_info in self.clients.items():
                 file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
 
+ 
     def handle_client_requests(self, client_socket):
+        #the first function that called, choose which request the client need
         try:
             # Receive the request from the client
             request_data = client_socket.recv(1024).decode("utf-8")
@@ -95,7 +97,6 @@ class AuthenticationServer:
         self.clients[client_id]["last_seen"] = time.strftime("%Y-%m-%d %H:%M:%S")
         #need to add saving into memory
     
-           
     def save_registered_servers(self):
        # Save registered servers to file
        with open("server.txt", "w") as file:
