@@ -45,6 +45,16 @@ def parse_request(self, request_data):
         payload = parts[1]
         return Request(type, payload)
 
+
+def get_auth_port_number():
+    try:
+        with open("port.info", 'r') as file:
+            auth_port_num = file.readline().strip()
+        return int(auth_port_num)
+    except (FileNotFoundError, ValueError):
+        # Return 1236 if file doesn't exist or if the content is not an integer
+        return 1236
+
 def serialize_response(self, response):
         # It's responsible for converting a response object, which contains both a response code and an optional payload,
         # into a string format that can be transmitted over the network to the client.

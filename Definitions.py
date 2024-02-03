@@ -31,7 +31,6 @@ RESPONSE_HEADER_LEN=VERSION_LEN+CODE_LEN+PAYLOADSIZE_LEN
 # The available request codes which are sent to authentication server by the client.
 class RequestAuth(IntEnum):
     REGISTER_CLIENT = 1024,
-    REGISTER_SERVER = 1025,
     REQUEST_LIST_OF_MESSAGE_SERVERS=1026,
     GET_SYMETRIC_KEY = 1027,
     
@@ -52,13 +51,12 @@ class ResponseMessage(IntEnum):
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
 
+class MessageServer(IntEnum):
+        REGISTER_SERVER = 1025,
+
 class Request(ABC):
     def __init__(self):
         self.version = VERSION
-        
-    @abstractmethod
-    def header(self):
-        pass
 
     @classmethod
     def pack(cls, client_id, version, code, payload):

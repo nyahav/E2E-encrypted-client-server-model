@@ -3,12 +3,12 @@ import uuid
 import socket
 import threading
 from Definitions import *
-from basicFunctions import encrypt_message,get_random_bytes, receive_response, send_request
+from basicFunctions import encrypt_message,get_random_bytes, receive_response, send_request, get_auth_port_number
 
 #client list need to be global
 class AuthenticationServer:
     def __init__(self):
-       self.port = self.load_port_info()
+       self.port = get_auth_port_number()
        self.load_registered_servers()    
        self.load_clients()
        self.clients = {}
@@ -16,14 +16,6 @@ class AuthenticationServer:
      
        
        #initialize phase
-    def load_port_info(self):
-       try:
-           with open("port.info", "r") as file:
-               port = int(file.read().strip())
-               return port
-       except FileNotFoundError:
-           print("Warning: port.info file not found. Using default port 1256.")
-           return 1256
 
     def load_registered_servers(self):
        # Load registered servers from file (if exists)
