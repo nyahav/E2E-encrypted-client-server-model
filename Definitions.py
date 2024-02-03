@@ -6,7 +6,7 @@ import struct
 # Constants
 
 # Values
-VERSION = 1
+VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
 MAX_PORT_VALUE = 65535
@@ -28,38 +28,35 @@ REQUEST_HEADER_LEN = CLIENT_ID_LEN + VERSION_LEN + CODE_LEN + PAYLOADSIZE_LEN
 #Response Lengths
 RESPONSE_HEADER_LEN=VERSION_LEN+CODE_LEN+PAYLOADSIZE_LEN
 
-# The available request codes which are taking care by the authentication server.
+# The available request codes which are sent to authentication server by the client.
 class RequestAuth(IntEnum):
-    REGISTER_CLIENT = 1025,
-    REGISTER_SERVER = 1027,
-    REQUEST_MESSAGE_SERVERS=1026,
-    GET_SYMETRIC_REQ = 1027,
+    REGISTER_CLIENT = 1024,
+    REQUEST_LIST_OF_MESSAGE_SERVERS=1026,
+    GET_SYMETRIC_KEY = 1027,
     
-# The available request codes which are taking care by the message server.
-class RequestAuth(IntEnum):
-    GET_SYMETRIC_REQ = 1028, 
+# The available request codes which are sent to message server by the client.
+class RequestMessage(IntEnum):
+    SEND_SYMETRIC_KEY = 1028, 
     SEND_MESSAGE = 1029, 
 
-# The available response codes which the authentication server can send to a client.
+# The available response codes which the authentication server  send to a client.
 class ResponseAuth(IntEnum):
     REGISTER_SUCCESS_RESP = 1600,
     REGISTER_FAILURE_RESP = 1601,
     RESPONSE_MESSAGE_SERVERS=1602,
-    RESPONSE_SYMETRIC_REQ = 1603,
- # The available response codes which the authentication server can send to a client.
-class ResponseAuth(IntEnum):
+    RESPONSE_SYMETRIC_KEY= 1603,
+ # The available response codes which the message server  send to a client.
+class ResponseMessage(IntEnum):
     APPROVE_SYMETRIC_KEY = 1604,
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
-   
+
+class MessageServer(IntEnum):
+        REGISTER_SERVER = 1025,
 
 class Request(ABC):
     def __init__(self):
-        self.version = 24
-        
-    @abstractmethod
-    def header(self):
-        pass
+        self.version = VERSION
 
     @classmethod
     def pack(cls, client_id, version, code, payload):
@@ -83,10 +80,3 @@ class Request(ABC):
 
         return server_response
 
-#class RegisterClient(Request):
-   # def __init__(self, username, password):
-    #    self.username = username
-    #   self.password = password
- #   self.len
-        
-#reg1 = RegisterClient("user", "pass")        
