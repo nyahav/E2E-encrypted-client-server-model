@@ -2,6 +2,8 @@ import secrets
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad,unpad
+
+from Definitions import Request
    
 #move both function into class so can be access from all entnties
 # Function for encrypting a message using AES-CBC
@@ -36,6 +38,17 @@ def get_random_bytes(length):
      raise ValueError("Invalid length. Please specify 16 or 32 bytes.")
     return secrets.token_bytes(length)
 
+def parse_request(self, request_data):
+        # Implement the logic to parse the request_data
+        parts = request_data.strip().split(":")
+        type = int(parts[0])
+        payload = parts[1]
+        return Request(type, payload)
+
+def serialize_response(self, response):
+        # It's responsible for converting a response object, which contains both a response code and an optional payload,
+        # into a string format that can be transmitted over the network to the client.
+        return f"{response[0]}:{response[1]}"
 """
 usage example on how to encrypt_message and decrypt_message
 helper = EncryptionHelper()

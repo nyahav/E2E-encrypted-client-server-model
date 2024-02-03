@@ -32,7 +32,7 @@ def write_server_info(self):
 
         #  logic to return the symmetric key for a specific server
         client_id = request.payload["client_id"]
-        response = ResponseAuth(ResponseAuth.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
+        response = (ResponseMessage.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
         return response
 
 def handle_client_request(self, client_socket):
@@ -41,18 +41,18 @@ def handle_client_request(self, client_socket):
     try:
         # Receive the request from the client
         request_data = client_socket.recv(1024).decode("utf-8")
-        request = self.parse_request(request_data)  # Assuming you have a parsing function
+        request = parse_request(request_data)  # Assuming you have a parsing function
 
         # Handle different request types
        
-        if request.type == RequestAuth. GET_SYMETRIC_REQ:
-            self.receive_aes_key_from_client(client_socket)  # Call the appropriate function
-        elif request.type == RequestAuth.SEND_MESSAGE:
-            self.receive_message_from_client(client_socket)  # Call the appropriate function
+        if request.type == RequestMessage. SEND_SYMETRIC_KEY:
+            receive_aes_key_from_client(client_socket)  
+        elif request.type == RequestMessage.SEND_MESSAGE:
+            receive_message_from_client(client_socket)  
         else:
-            response = (ResponseAuth.GENERAL_ERROR,)
+            response = (ResponseMessage.GENERAL_ERROR,)
 
-        client_socket.send(self.serialize_response(response))  # Assuming you have a serialization function
+        client_socket.send(serialize_response(response))  
 
     except Exception as e:
         print(f"Error handling client: {e}")
@@ -60,17 +60,6 @@ def handle_client_request(self, client_socket):
     finally:
         client_socket.close()
 
-def parse_request(self, request_data):
-        # Implement the logic to parse the request_data
-        parts = request_data.strip().split(":")
-        type = int(parts[0])
-        payload = parts[1]
-        return Request(type, payload)
-
-def serialize_response(self, response):
-        # It's responsible for converting a response object, which contains both a response code and an optional payload,
-        # into a string format that can be transmitted over the network to the client.
-        return f"{response[0]}:{response[1]}"
 
 # Function to perform a registration request to the authentication server
 def register_to_auth_server(sock, username):
@@ -95,12 +84,12 @@ def receive_aes_key_from_client(self,sock,authenticator, ticket):
         decrypted_message = decrypt_message(encrypted_message, aes_key, iv)
 
         # Send back a success response (code 1604)
-        send_request(sock, ResponseAuth.APPROVE_SYMETRIC_KEY)  # Assuming you have a function to send responses
+        send_request(sock, ResponseMessage.APPROVE_SYMETRIC_KEY)  # Assuming you have a function to send responses
 
         print(f"Received message: {decrypted_message.decode()}")
     except Exception as e:
         # Send back an error response (code 1609)
-        send_request(sock, ResponseAuth.GENERAL_ERROR)
+        send_request(sock, ResponseMessage.GENERAL_ERROR)
         print(f"Error handling message: {e}")
 
 # Function to receive a message from the client
@@ -116,11 +105,11 @@ def receive_message_from_client(self,sock):
         decrypted_message = decrypt_message(message_content, aes_key, message_iv)
 
         # Send back an acknowledgement (code 1605)
-        send_request(sock, ResponseAuth.APPROVE_MESSAGE_RECIVED)
+        send_request(sock, ResponseMessage.APPROVE_MESSAGE_RECIVED)
 
         print(f"Received message: {decrypted_message.decode()}")
     except Exception as e:
-          send_request(sock, ResponseAuth.GENERAL_ERROR)  # Send error response
+          send_request(sock, ResponseMessage.GENERAL_ERROR)  
           print(f"Error handling message: {e}")
     
 

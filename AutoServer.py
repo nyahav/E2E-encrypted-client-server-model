@@ -36,6 +36,19 @@ class AuthenticationServer:
        except FileNotFoundError:
            pass  # File doesn't exist yet
     
+    def save_servers(self):
+        # Save server information to file
+        with open("server.info", "w") as file:
+            for server_id, server_info in self.servers.items():
+                server_name = server_info.get("name")
+                aes_key = server_info.get("aes_key")
+
+                # Validate required fields
+                if not server_id or not server_name or not aes_key:
+                    raise ValueError("Missing required server information: (id, name, aes_key)")
+
+                file.write(f"{server_id}:{server_name}:{aes_key}\n")
+   
     def load_clients(self):
         # Load client information from file (if exists)
         try:
@@ -53,7 +66,6 @@ class AuthenticationServer:
             for client_id, client_info in self.clients.items():
                 file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
 
- 
     def handle_client_requests(self, client_socket):
         #the first function that called, choose which request the client need
         try:
@@ -62,17 +74,20 @@ class AuthenticationServer:
             request = self.parse_request(request_data)
 
             # Use a switch case or if-elif statements to handle different request types
-            if request.type == RequestAuth.REGISTER:
-                response = self.handle_client_registration(request)
+            if request.type == RequestAuth.REGISTER_CLIENT:
+                response = self.handle_client_connection(request)
+            elif request.type == RequestAuth.REGISTER_SERVER:
+                response=self.load_registered_servers(request)
             elif request.type == RequestAuth.GET_AES_KEY:
                 client_id, encrypted_key, encrypted_ticket = self.handle_request_get_aes_key(request)
                 response = (ResponseAuth.AES_KEY_SUCCESS_RESP, {"client_id": client_id, "encrypted_key": encrypted_key, "encrypted_ticket": encrypted_ticket})
-            elif request.type == RequestAuth.GET_SERVER_LIST:
+            elif request.type == RequestAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
                 response = self.handle_request_server_list_(client_socket)
+            
             else:
                 response = (ResponseAuth.GENERAL_ERROR,)
 
-            client_socket.send(self.serialize_response(response))
+    
 
         except Exception as e:
             print(f"Error handling client: {e}")
@@ -80,32 +95,20 @@ class AuthenticationServer:
         finally:
             client_socket.close()
    
-    def parse_request(self, request_data):
-        # Implement the logic to parse the request_data
-        parts = request_data.strip().split(":")
-        type = int(parts[0])
-        payload = parts[1]
-        return Request(type, payload)
-
-    def serialize_response(self, response):
+  
         # It's responsible for converting a response object, which contains both a response code and an optional payload,
         # into a string format that can be transmitted over the network to the client.
         return f"{response[0]}:{response[1]}"
    
-    def update_last_seen(self, client_id):
-        # Update the last_seen timestamp for a client
-        self.clients[client_id]["last_seen"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        #need to add saving into memory
-    
+  
+       
+        return str(uuid.uuid4())
+  
     def save_registered_servers(self):
        # Save registered servers to file
        with open("server.txt", "w") as file:
            for server_id, server_info in self.server.items():
                file.write(f"{server_id}:{server_info['name']}:{server_info['aes_key']}\n")
-
-    def generate_unique_id(self):
-       
-        return str(uuid.uuid4())
 
     def handle_client_connection(self, request):
         username = request.payload["username"]
@@ -142,7 +145,7 @@ class AuthenticationServer:
         creation_time = int(time.time())
         expiration_time = creation_time + self.ticket_expiration_time
         ticket_data = struct.pack("<BI16s16sQ16s32sQ",
-                             24,  # Version (1 byte)
+                             VERSION,  # Version (1 byte)
                              client_id.encode(),  # Client ID (16 bytes)
                              server_id.encode(),  # Server ID (16 bytes)
                              creation_time,  # Creation time (8 bytes)
@@ -162,6 +165,14 @@ class AuthenticationServer:
         response_data = self.response_instance.create_server_list_response(server_list)
 
         send_request(sock, response_data)  # Send the response
+
+    def create_server_list_response(self,server_list):
+        response_data = b""
+        for server in server_list:
+            # Assuming server objects have attributes server_ID and server_name
+            server_response = self.response_message_servers(server.server_ID, server.server_name)
+            response_data += server_response
+        return response_data
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

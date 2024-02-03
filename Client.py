@@ -31,12 +31,17 @@ class Client:
         try:
             with open("me.info", "r") as file:
                 address = file.readline().strip()
-                ip_address, port_str = address.split(':')  
-                port = int(port_str)
+                parts = address.split(':')
                 
+                if len(parts) != 2:
+                    raise ValueError("Invalid address format in me.info file")
+
+                ip_address, port_str = parts
+                port = int(port_str)
+
                 clientName = file.readline().strip()
                 client_ID = file.readline().strip()
-                return client_ID, clientName, ip_address,port
+                return client_ID, clientName, ip_address, port
         except FileNotFoundError:
             print("Error: me.info file not found.")
             exit()
@@ -150,7 +155,7 @@ class Client:
        
         # Pack the authenticator data using struct
         authenticator_data = struct.pack("<BI16s16sQ",
-                                        24,  # Version (1 byte)
+                                        VERSION,  # Version (1 byte)
                                         client_ID.encode(),  # Client ID (16 bytes)
                                         server_ID.encode(),  # Server ID (16 bytes)
                                         int(time_stamp))  # Creation time (8 bytes)

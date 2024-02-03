@@ -1,4 +1,4 @@
-from Definitions import Request
+from Definitions import VERSION, Request
 import struct
 
 HEADER_SIZE = "<16sHHI"
@@ -11,24 +11,15 @@ class SpecificRequest(Request):
         
         def register_server(self,username,AES):
             payload = username.encode() + AES.encode()  
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1027, len(self.payload),payload)
-            return request_data
-     
-        def request_message_servers(self):
-            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1026, 0) 
-            return request_data
-        
-        def get_symetric_req(self,client_ID,server_ID,nonce):
-            payload = client_ID.encode() + server_ID.encode()+nonce.encode()
-            request_data =struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1028,len(self.payload),payload)
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_id,VERSION, 1027, len(self.payload),payload)
             return request_data
         
         def approve_aes_recived(self):
-            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1604, 0) 
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, VERSION, 1604, 0) 
             return request_data
         def approve_message_recived(self):
-            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1605, 0) 
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, VERSION, 1605, 0) 
             return request_data
         def general_error(self):
-            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, self.version, 1609, 0) 
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_id, VERSION, 1609, 0) 
             return request_data
