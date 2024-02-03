@@ -66,14 +66,14 @@ class AuthenticationServer:
             request = self.parse_request(request_data)
 
             # Use a switch case or if-elif statements to handle different request types
-            if request.type == RequestAuth.REGISTER_CLIENT:
+            if request.type == ClientRequestToAuth.REGISTER_CLIENT:
                 response = self.handle_client_connection(request)
-            elif request.type == RequestAuth.REGISTER_SERVER:
+            elif request.type == ClientRequestToAuth.REGISTER_SERVER:
                 response=self.load_registered_servers(request)
-            elif request.type == RequestAuth.GET_AES_KEY:
+            elif request.type == ClientRequestToAuth.GET_AES_KEY:
                 client_id, encrypted_key, encrypted_ticket = self.handle_request_get_aes_key(request)
                 response = (ResponseAuth.AES_KEY_SUCCESS_RESP, {"client_id": client_id, "encrypted_key": encrypted_key, "encrypted_ticket": encrypted_ticket})
-            elif request.type == RequestAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
+            elif request.type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
                 response = self.handle_request_server_list_(client_socket)
             
             else:

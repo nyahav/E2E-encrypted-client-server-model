@@ -1,6 +1,6 @@
 import socket
 import struct
-from Definitions import Request, VERSION
+from Definitions import Request, VERSION, ResponseAuth
 
 HEADER_SIZE = "<HHI"
 
@@ -11,21 +11,21 @@ class SpecificRequest(Request):
 
     def register_client_success(self, client_ID):
         payload = client_ID.encode()
-        request_data = struct.pack(HEADER_SIZE, VERSION, 1600, len(payload)) + payload
+        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP, len(payload)) + payload
         return request_data
 
     def register_client_failure(self, client_ID):
-        request_data = struct.pack(HEADER_SIZE, VERSION, 1601, 0)
+        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.REGISTER_FAILURE_RESP, 0)
         return request_data
 
     def response_message_servers(self, server_ID, server_name):
         payload = server_ID.encode() + server_name.encode()
-        request_data = struct.pack(HEADER_SIZE, VERSION, 1602, len(payload)) + payload
+        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.RESPONSE_MESSAGE_SERVERS, len(payload)) + payload
         return request_data
 
     def response_symetric_req(self, client_ID, AES, ticket):
         payload = client_ID.encode() + AES.encode() + ticket.encode()
-        request_data = struct.pack(HEADER_SIZE, VERSION, 1603, len(payload)) + payload
+        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.RESPONSE_SYMETRIC_KEY, len(payload)) + payload
         return request_data
 
     def send_request(self, request_data):
