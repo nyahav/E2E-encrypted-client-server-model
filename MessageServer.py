@@ -15,7 +15,7 @@ class MessageServer:
             if len(lines) >= 4:
                 (self.IP, self.port) = lines[0].strip().split(":")
                 self.server_name = lines[1].strip()
-                self.server_id = lines[2].strip()
+                self.server_id = bytes.fromhex(lines[2].strip())
                 self.symmetric_key = base64.b64decode(lines[3].strip()+'=')
                 self.port = int(self.port)
 
@@ -23,7 +23,7 @@ class MessageServer:
         with open(f"msg{self.server_num}.info", "w") as file:
             file.write(f"{self.IP}:{self.port}\n")
             file.write(f"{self.server_name}\n")
-            file.write(f"{self.server_id}\n")
+            file.write(f"{self.server_id.hex()}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
     def handle_client_request(self, client_socket):
@@ -65,7 +65,7 @@ def main():
     sock.bind(server_address)
     sock.listen(1)
     r = SpecificRequest()
-    data = r.register_server(message_server.server_name, message_server.symmetric_key)
+    data = r.register_server(message_server.server_id,message_server.server_name, message_server.symmetric_key)
     print(data)
     while True:
         client_sock, client_address = sock.accept()

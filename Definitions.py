@@ -51,7 +51,7 @@ class ResponseMessage(IntEnum):
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
 
-class MessageServerToA(IntEnum):
+class MessageServerToAuth(IntEnum):
         REGISTER_MESSAGE_SERVER = 1025,
 
 class Request(ABC):
