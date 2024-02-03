@@ -58,15 +58,24 @@ class MessageServer:
         ...
 
 def main():
+    r = SpecificRequest()
     mServer_num = 1  # Define your server number or ID here, different for every Thread
     message_server = MessageServer(mServer_num)
+
+
+    #register this message server to the authentication server
+    auth_port_number = get_auth_port_number()
+    register_data = r.register_server(message_server.server_id,message_server.server_name, message_server.symmetric_key)
+    sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    auth_address = ('127.0.0.1', auth_port_number)
+    sign_to_auth_sock.connect(auth_address)
+    sign_to_auth_sock.send(register_data)
+
+
     server_address = (message_server.IP, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
     sock.listen(1)
-    r = SpecificRequest()
-    data = r.register_server(message_server.server_id,message_server.server_name, message_server.symmetric_key)
-    print(data)
     while True:
         client_sock, client_address = sock.accept()
         try:
