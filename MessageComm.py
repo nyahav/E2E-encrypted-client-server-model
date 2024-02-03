@@ -7,11 +7,13 @@ class SpecificRequest(Request):
     def __init__(self):
         super().__init__()
     
-    class MyRequest(Request):
-        
-        def register_server(self,username,AES):
-            payload = username.encode() + AES.encode()  
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_id,VERSION, 1027, len(self.payload),payload)
+    class MyRequest(Request):   
+        def register_server(self, username, AES):
+            payload = username.encode() + AES.encode()
+            # Pack the header with client_id, version, and the length of the payload
+            header = HEADER_SIZE.pack(self.client_id, VERSION, 1027, len(payload))
+            # Concatenate the header and the payload
+            request_data = header + payload
             return request_data
         
         def approve_aes_recived(self):

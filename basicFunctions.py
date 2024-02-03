@@ -2,9 +2,8 @@ import secrets
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad,unpad
-
 from Definitions import Request
-   
+
 #move both function into class so can be access from all entnties
 # Function for encrypting a message using AES-CBC
 def encrypt_message(message, key, iv):
@@ -44,6 +43,16 @@ def parse_request(self, request_data):
         type = int(parts[0])
         payload = parts[1]
         return Request(type, payload)
+
+def get_auth_port_number():
+    try:
+        with open("port.info", 'r') as file:
+            auth_port_num = file.readline().strip()
+        return int(auth_port_num)
+    except (FileNotFoundError, ValueError):
+        # Return 1236 if file doesn't exist or if the content is not an integer
+        return 1236
+
 
 def serialize_response(self, response):
         # It's responsible for converting a response object, which contains both a response code and an optional payload,
