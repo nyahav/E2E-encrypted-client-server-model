@@ -45,6 +45,13 @@ def parse_request(self, request_data):
         payload = parts[1]
         return Request(type, payload)
 
+def generate_unique_id(self):
+       # TODO: Implement the protocol to generate unique id
+
+        uuid=uuid.uuid4()
+        uuid=uuid.hex()
+        return str(uuid)
+
 def serialize_response(self, response):
         # It's responsible for converting a response object, which contains both a response code and an optional payload,
         # into a string format that can be transmitted over the network to the client.

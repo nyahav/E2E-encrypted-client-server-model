@@ -31,10 +31,22 @@ def write_server_info(self):
         
 
         #  logic to return the symmetric key for a specific server
-        client_id = request.payload["client_id"]
+        client_id = Request.payload["client_id"]
         response = (ResponseMessage.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
         return response
 
+# Function to perform a registration request to the authentication server
+#read auth server information from port.info
+def register_to_auth_server(sock, username):
+    request = f"REGISTER {username}"
+    send_request(sock, request)
+    response = receive_response(sock)
+    if response == "ERROR":
+        handle_server_error()
+    else:
+        print("Registration successful")
+        
+#Function to decide which request the client sent and which function to call       
 def handle_client_request(self, client_socket):
     """Handles incoming client requests."""
 
@@ -60,18 +72,7 @@ def handle_client_request(self, client_socket):
     finally:
         client_socket.close()
 
-
-# Function to perform a registration request to the authentication server
-def register_to_auth_server(sock, username):
-    request = f"REGISTER {username}"
-    send_request(sock, request)
-    response = receive_response(sock)
-    if response == "ERROR":
-        handle_server_error()
-    else:
-        print("Registration successful")
-
-# Function to get an AES key from the message server
+# Function to get an AES key from the client
 def receive_aes_key_from_client(self,sock,authenticator, ticket):
     try:
         aes_key = decrypt_ticket_and_aes_key(ticket, authenticator)  

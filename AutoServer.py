@@ -96,14 +96,6 @@ class AuthenticationServer:
             client_socket.close()
    
   
-        # It's responsible for converting a response object, which contains both a response code and an optional payload,
-        # into a string format that can be transmitted over the network to the client.
-        return f"{response[0]}:{response[1]}"
-   
-  
-       
-        return str(uuid.uuid4())
-  
     def save_registered_servers(self):
        # Save registered servers to file
        with open("server.txt", "w") as file:
