@@ -26,6 +26,7 @@ class MessageServer:
             file.write(f"{self.server_id.hex()}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
+
     def handle_client_request(self, client_socket):
         """Handles incoming client requests."""
         try:
@@ -49,13 +50,51 @@ class MessageServer:
         finally:
             client_socket.close()
 
-    def receive_aes_key_from_client(self, sock, authenticator, ticket):
-        # Function to get an AES key from the message server
-        ...
 
-    def receive_message_from_client(self, sock):
-        # Function to receive a message from the client
-        ...
+
+    # Function to get an AES key from the message server
+    def receive_aes_key_from_client(self,sock,authenticator, ticket):
+        try:
+            aes_key = decrypt_ticket_and_aes_key(ticket, authenticator)  
+            # Receive the encrypted message from the client
+            iv, encrypted_message = receive_response(sock).split(' ')
+            iv = bytes.fromhex(iv)
+            encrypted_message = bytes.fromhex(encrypted_message)
+
+            # Decrypt the message using the decrypted AES key
+            decrypted_message = decrypt_message(encrypted_message, aes_key, iv)
+            # Send back a success response (code 1604)
+            send_request(sock, ResponseMessage.APPROVE_SYMETRIC_KEY)  # Assuming you have a function to send responses
+        except:
+            print("Error")
+
+
+def decrypt_ticket_and_aes_key(ticket, authenticator):
+    pass
+
+
+
+def receive_message_from_client(self, sock):
+        try:
+            # Receive the size of the incoming message
+            message_size = self.receive_response(sock)[:4]
+            message_size = int.from_bytes(message_size, "little")
+
+            # Receive the initialization vector for decryption
+            message_iv = self.receive_response(sock)[:16]
+
+            # Receive the actual message content
+            message_content = self.receive_response(sock)
+
+            # Decrypt the message content using the server's symmetric key
+            decrypted_message = self.decrypt_message(message_content, self.symmetric_key, message_iv)
+
+        except Exception as e:
+            print(f"Error receiving message from client: {e}")
+
+        # Process the decrypted message further as needed
+
+    # Define receive_response and decrypt_message methods as needed
 
 def main():
     r = SpecificRequest()
