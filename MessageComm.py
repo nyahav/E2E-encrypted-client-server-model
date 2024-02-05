@@ -8,7 +8,7 @@ class SpecificRequest(Request):
         super().__init__()
           
     def register_server(self, server_id, username, AES):
-        server_id = server_id.encode('utf-8')
+        
         payload = username.encode() + AES
         # Pack the header with client_id, version, and the length of the payload
         header = struct.Struct(HEADER_SIZE).pack(server_id, VERSION, MessageServerToAuth.REGISTER_MESSAGE_SERVER, len(payload))
