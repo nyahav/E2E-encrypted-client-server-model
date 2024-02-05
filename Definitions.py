@@ -4,19 +4,17 @@ from enum import *
 import struct
 
 # Constants
-# ANSI color codes
-RED = '\033[91m'
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-ENDC = '\033[0m'  # Reset color to default
-# Print in different colors
-print(RED + "This is red text" + ENDC)
-print(GREEN + "This is green text" + ENDC)
-print(YELLOW + "This is yellow text" + ENDC)
-print(BLUE + "This is blue text" + ENDC)
-sentence = "This is a sentence"
-line = "_" * len(sentence)
+class Color(Enum):
+    RESET = '\033[0m'
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    PURPLE = '\033[95m'
+def colored_text(text, color):
+    return f"{color.value}{text}{Color.RESET.value}"
+# Example usage:
+#print(colored_text("This is red text", Color.RED))
 
 print(sentence)
 print(line)
@@ -61,6 +59,7 @@ class ResponseAuth(IntEnum):
     REGISTER_FAILURE_RESP = 1601,
     RESPONSE_MESSAGE_SERVERS=1602,
     RESPONSE_SYMETRIC_KEY= 1603,
+    GENERAL_ERROR=1609,
  # The available response codes which the message server  send to a client.
 class ResponseMessage(IntEnum):
     APPROVE_SYMETRIC_KEY = 1604,

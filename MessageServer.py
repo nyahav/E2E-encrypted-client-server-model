@@ -2,13 +2,15 @@ import os
 import base64
 import socket
 from Definitions import *
-from basicFunctions import *
-     
+from basicFunctions import EncryptionHelper
+from MessageComm import SpecificRequest
+
+
 class MessageServer:
     def __init__(self, mServer_num):
-            self.IP="127.0.0.1"
-            self.port="1234"
-            self.read_server_info()  # Read info from msg.info
+        self.encryption_helper = EncryptionHelper()
+        self.server_num = mServer_num
+        self.read_server_info()  # Read info from msg(#).info
 
    
 
@@ -114,9 +116,89 @@ def receive_message_from_client(self,sock):
           print(f"Error handling message: {e}")
     
 
+    def handle_client_request(self, client_socket):
+        """Handles incoming client requests."""
+        try:
+            # Receive the request from the client
+            request_data = client_socket.recv(1024).decode("utf-8")
+            request = self.encryption_helper.parse_request(request_data)
 
-def main(self):
-    server_address = (self.IP, self.port)  # Use server info from msg.info
+            # Handle different request types
+            if request.type == RequestMessage.SEND_SYMETRIC_KEY:
+                self.receive_aes_key_from_client(client_socket)
+            elif request.type == RequestMessage.SEND_MESSAGE:
+                self.receive_message_from_client(client_socket)
+            else:
+                response = (ResponseMessage.GENERAL_ERROR,)
+
+            client_socket.send(self.encryption_helper.serialize_response(response))
+
+        except Exception as e:
+            print(f"Error handling client: {e}")
+
+        finally:
+            client_socket.close()
+
+    def receive_aes_key_from_client(self, sock, authenticator, ticket):
+        try:
+            aes_key = decrypt_ticket_and_aes_key(ticket, authenticator)
+            # Receive the encrypted message from the client
+            iv, encrypted_message = receive_response(sock).split(' ')
+            iv = bytes.fromhex(iv)
+            encrypted_message = bytes.fromhex(encrypted_message)
+
+            # Decrypt the message using the decrypted AES key
+            decrypted_message = decrypt_message(encrypted_message, aes_key, iv)
+            # Send back a success response (code 1604)
+            send_request(sock, ResponseMessage.APPROVE_SYMETRIC_KEY)  # Assuming you have a function to send responses
+        except:
+            print("Error")
+
+    def decrypt_ticket_and_aes_key(self, ticket, authenticator):
+        pass
+
+    def receive_message_from_client(self, sock):
+        try:
+            # Receive the size of the incoming message
+            message_size = self.receive_response(sock)[:4]
+            message_size = int.from_bytes(message_size, "little")
+
+            # Receive the initialization vector for decryption
+            message_iv = self.receive_response(sock)[:16]
+
+            # Receive the actual message content
+            message_content = self.receive_response(sock)
+
+            # Decrypt the message content using the server's symmetric key
+            decrypted_message = self.decrypt_message(
+                message_content, self.symmetric_key, message_iv)
+
+        except Exception as e:
+            print(f"Error receiving message from client: {e}")
+
+        # Process the decrypted message further as needed
+
+    # Define receive_response and decrypt_message methods as needed
+
+
+def main():
+    r = SpecificRequest()
+    mServer_num = 1  # Define your server number or ID here, different for every Thread
+    message_server = MessageServer(mServer_num)
+
+    # Register this message server to the authentication server
+    auth_port_number = message_server.encryption_helper.get_auth_port_number()
+    register_data = r.register_server(
+        message_server.server_id, message_server.server_name, message_server.symmetric_key)
+    
+    print("MessageServer is running on port: {server_address}")
+    print(register_data)
+    sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    auth_address = ('127.0.0.1', auth_port_number)
+    sign_to_auth_sock.connect(auth_address)
+    sign_to_auth_sock.send(register_data)
+
+    server_address = (message_server.IP, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
     sock.listen(1)
@@ -127,6 +209,7 @@ def main(self):
             message_server.handle_client_request(client_sock)
         finally:
             client_sock.close()
+
 
 if __name__ == "__main__":
     message_server = MessageServer(mServer_num="server1")
