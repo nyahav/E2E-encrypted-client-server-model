@@ -21,7 +21,7 @@ VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
 MAX_PORT_VALUE = 65535
-DATABASE_NAME = "server.db"
+
 
 #  Lengths
 UUID_LEN = 16

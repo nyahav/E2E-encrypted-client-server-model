@@ -71,13 +71,18 @@ class AuthenticationServer:
         # Load client information from file (if exists)
         try:
             with open("clients.info", "r") as file:
-                for line in file:
-                    client_data = line.strip().split(":")
-                    if len(client_data) == 4:
-                        client_id, name, password_hash, last_seen = client_data
-                        self.clients[client_id] = {"name": name, "password_hash": password_hash, "last_seen": last_seen}
-                    else:
-                        print(f"Invalid format in clients.info: {line.strip()}")
+                lines = file.readlines()
+
+                if lines:
+                    for line in lines:
+                        client_data = line.strip().split(":")
+                        if len(client_data) == 4:
+                            client_id, name, password_hash, last_seen = client_data
+                            self.clients[client_id] = {"name": name, "password_hash": password_hash, "last_seen": last_seen}
+                        else:
+                            print(f"Invalid format in clients.info: {line.strip()}")
+                else:
+                    print("File clients.info is empty.")
         except FileNotFoundError:
             pass  # File doesn't exist yet
 
@@ -94,6 +99,8 @@ class AuthenticationServer:
 
             # Receive the request from the client
             request_data = client_socket.recv(1024)
+            print( request_data)
+            print("reqest data")
             request_type, payload=self.unpack_MessageServer(request_data)
             # Use the updated parse_request function
             #request_type, payload = self.encryption_helper.parse_request(request_data)
@@ -107,6 +114,7 @@ class AuthenticationServer:
             elif request_type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
                 response_data = self.handle_request_server_list_(client_socket)
             elif request_type == MessageServerToAuth. REGISTER_MESSAGE_SERVER:
+                print("message from MessageServer")
                 response_data = self.load_registered_servers(payload)
     
             else:
