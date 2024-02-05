@@ -4,13 +4,12 @@ import socket
 from Definitions import *
 from basicFunctions import EncryptionHelper
 from MessageComm import SpecificRequest
-
-
 class MessageServer:
     def __init__(self, mServer_num):
         self.encryption_helper = EncryptionHelper()
         self.server_num = mServer_num
         self.read_server_info()  # Read info from msg(#).info
+
 
     def read_server_info(self):
         with open(f"msg{self.server_num}.info", "r") as f:
@@ -19,7 +18,7 @@ class MessageServer:
                 (self.IP, self.port) = lines[0].strip().split(":")
                 self.server_name = lines[1].strip()
                 self.server_id = lines[2].strip()
-                self.symmetric_key = base64.b64decode(lines[3].strip())
+                self.symmetric_key = base64.b64decode(lines[3].strip()+'=')
                 self.port = int(self.port)
 
     def write_server_info(self):
@@ -29,13 +28,6 @@ class MessageServer:
             file.write(f"{self.server_name}\n")
             file.write(f"{self.server_id}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
-
-        #  logic to return the symmetric key for a specific server
-        client_id = Request.payload["client_id"]
-        response = (ResponseMessage.RESPONSE_SYMETRIC_REQ, {"aes_key": self.aes_key, "client_id": client_id})
-        return response
-
-      
             
     #Function to decide which request the client sent and which function to call       
     def handle_client_request(self, client_socket):
@@ -131,30 +123,26 @@ def main():
     mServer_num = 1  # Define your server number or ID here, different for every Thread
     message_server = MessageServer(mServer_num)
 
-    # Register this message server to the authentication server
+
+    #register this message server to the authentication server
     auth_port_number = message_server.encryption_helper.get_auth_port_number()
-    register_data = r.register_server(
-        message_server.server_id, message_server.server_name, message_server.symmetric_key)
-    
-    print("MessageServer is running on port: {server_address}")
-    print(register_data)
+    register_data = r.register_server(message_server.server_id,message_server.server_name, message_server.symmetric_key)
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     auth_address = ('127.0.0.1', auth_port_number)
     sign_to_auth_sock.connect(auth_address)
     sign_to_auth_sock.send(register_data)
 
+
     server_address = (message_server.IP, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
     sock.listen(1)
-
     while True:
         client_sock, client_address = sock.accept()
         try:
             message_server.handle_client_request(client_sock)
         finally:
             client_sock.close()
-
 
 if __name__ == "__main__":
     main()

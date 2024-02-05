@@ -68,9 +68,6 @@ class Request(ABC):
     def __init__(self):
         self.version = VERSION
         
-    @abstractmethod
-    def header(self):
-        pass
 
     @classmethod
     def pack(cls, client_id, version, code, payload):
