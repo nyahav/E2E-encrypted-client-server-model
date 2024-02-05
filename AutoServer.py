@@ -1,36 +1,63 @@
+import base64
 import time
 import uuid
 import socket
 import threading
 from Definitions import *
-from basicFunctions import encrypt_message,get_random_bytes, receive_response, send_request, get_auth_port_number
+from MessageServer import MessageServer
+from basicFunctions import EncryptionHelper
 
 #client list need to be global
 class AuthenticationServer:
     def __init__(self):
-       self.port = get_auth_port_number()
+       self.encryption_helper = EncryptionHelper()
+       self.port = self.encryption_helper.get_auth_port_number()
        self.load_registered_servers()    
        self.load_clients()
        self.clients = {}
        self.servers = {}
      
-       
-       #initialize phase
 
-    def load_registered_servers(self):
-       # Load registered servers from file (if exists)
-       try:
-           with open("server.info", "r") as file:
-               for line in file:
-                   server_data = line.strip().split(":")
-                   server_id, server_name, aes_key = server_data
-                   self.server[server_id] = {"name": server_name, "aes_key": aes_key}
-       except FileNotFoundError:
-           pass  # File doesn't exist yet
     
+    def read_server_list(self, file_path):
+        server_list = []
+
+        try:
+            with open(file_path, "r") as f:
+                lines = f.readlines()
+
+                for line in lines:
+                    # Splitting the line into IP:Port and name
+                    ip_port, name = map(str.strip, line.split(','))
+                    ip, port = ip_port.split(':')
+
+                    # Creating a new server object and setting the attributes
+                    server = MessageServer(len(server_list) + 1)
+                    server.IP = ip
+                    server.port = int(port)
+                    server.server_name = name
+
+                    # Reading additional info from the corresponding server info file
+                    server.read_server_info()
+
+                    # Adding the server object to the list
+                    server_list.append(server)
+
+        except FileNotFoundError:
+            pass  # File doesn't exist yet
+
+        return server_list
+    def load_registered_servers(self):
+        server_list = self.read_server_list("msg_server_list.info")
+        for server in server_list:
+            self.servers[server.server_num] = {
+                "name": server.server_name,
+                "aes_key": base64.b64encode(server.symmetric_key).decode(),
+            }
+
     def save_servers(self):
         # Save server information to file
-        with open("server.info", "w") as file:
+        with open("msg_server_list.info", "w") as file:
             for server_id, server_info in self.servers.items():
                 server_name = server_info.get("name")
                 aes_key = server_info.get("aes_key")
@@ -40,18 +67,25 @@ class AuthenticationServer:
                     raise ValueError("Missing required server information: (id, name, aes_key)")
 
                 file.write(f"{server_id}:{server_name}:{aes_key}\n")
-   
     def load_clients(self):
         # Load client information from file (if exists)
         try:
             with open("clients.info", "r") as file:
-                for line in file:
-                    client_data = line.strip().split(":")
-                    client_id, name, password_hash, last_seen = client_data
-                    self.clients[client_id] = {"name": name, "password_hash": password_hash, "last_seen": last_seen}
+                lines = file.readlines()
+
+                if lines:
+                    for line in lines:
+                        client_data = line.strip().split(":")
+                        if len(client_data) == 4:
+                            client_id, name, password_hash, last_seen = client_data
+                            self.clients[client_id] = {"name": name, "password_hash": password_hash, "last_seen": last_seen}
+                        else:
+                            print(f"Invalid format in clients.info: {line.strip()}")
+                else:
+                    print("File clients.info is empty.")
         except FileNotFoundError:
             pass  # File doesn't exist yet
-        
+
     def save_clients(self):
         # Save client information to file
         with open("clients.info", "w") as file:
@@ -59,43 +93,57 @@ class AuthenticationServer:
                 file.write(f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
 
     def handle_client_requests(self, client_socket):
-        #the first function that called, choose which request the client need
         try:
+            response_data = None
+            request_type = None
+
             # Receive the request from the client
-            request_data = client_socket.recv(1024).decode("utf-8")
-            request = self.parse_request(request_data)
+            request_data = client_socket.recv(1024)
+            print( request_data)
+            print("reqest data")
+            request_type, payload=self.unpack_MessageServer(request_data)
+            # Use the updated parse_request function
+            #request_type, payload = self.encryption_helper.parse_request(request_data)
 
             # Use a switch case or if-elif statements to handle different request types
-            if request.type == ClientRequestToAuth.REGISTER_CLIENT:
-                response = self.handle_client_connection(request)
-            elif request.type == ClientRequestToAuth.REGISTER_SERVER:
-                response=self.load_registered_servers(request)
-            elif request.type == ClientRequestToAuth.GET_AES_KEY:
-                client_id, encrypted_key, encrypted_ticket = self.handle_request_get_aes_key(request)
-                response = (ResponseAuth.AES_KEY_SUCCESS_RESP, {"client_id": client_id, "encrypted_key": encrypted_key, "encrypted_ticket": encrypted_ticket})
-            elif request.type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
-                response = self.handle_request_server_list_(client_socket)
-            
-            else:
-                response = (ResponseAuth.GENERAL_ERROR,)
-
+            if request_type == ClientRequestToAuth.REGISTER_CLIENT:
+                response_data = self.handle_client_connection(payload)
+            elif request_type == ClientRequestToAuth. GET_SYMETRIC_KEY:
+                client_id, encrypted_key, encrypted_ticket = self.handle_request_get_aes_key(payload)
+                response_data = (ResponseAuth.RESPONSE_SYMETRIC_KEY, {"client_id": client_id, "encrypted_key": encrypted_key, "encrypted_ticket": encrypted_ticket})
+            elif request_type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
+                response_data = self.handle_request_server_list_(client_socket)
+            elif request_type == MessageServerToAuth. REGISTER_MESSAGE_SERVER:
+                print("message from MessageServer")
+                response_data = self.load_registered_servers(payload)
     
+            else:
+                response_data = (ResponseMessage.GENERAL_ERROR,)
+
+            # Ensure that the response_data is encoded before sending
+            encoded_response_data = self.encryption_helper.serialize_response(response_data)
+            client_socket.send(encoded_response_data)
 
         except Exception as e:
             print(f"Error handling client: {e}")
+            response_data = (ResponseMessage.GENERAL_ERROR,)
 
         finally:
+            # Assign the response_data to self.encryption_helper.receive_response
+            self.encryption_helper.receive_response = response_data
             client_socket.close()
    
-  
-        # It's responsible for converting a response object, which contains both a response code and an optional payload,
-        # into a string format that can be transmitted over the network to the client.
-        return f"{response[0]}:{response[1]}"
-   
-  
-       
-        return str(uuid.uuid4())
-  
+    def unpack_MessageServer(cls, response_payload):
+        # Implement the unpacking logic for the response payload
+        header_format="<16sHHI"
+        header_size = struct.calcsize(header_format)
+        header = struct.unpack(header_format, response_payload[:header_size])
+
+        request_type = header[2]  # Assuming 'Code' field corresponds to the request type
+        payload_size = header[3]
+        payload = response_payload[header_size:header_size + payload_size]
+
+        return request_type, payload
     def save_registered_servers(self):
        # Save registered servers to file
        with open("server.txt", "w") as file:
@@ -171,7 +219,8 @@ class AuthenticationServer:
         server_socket.bind(("localhost", self.port))
         server_socket.listen(5)
         print(f"Authentication server listening on port {self.port}...")
-    #consider adding switch case for requests
+
+        # Consider adding switch case for requests
         while True:
             client_socket, addr = server_socket.accept()
             client_thread = threading.Thread(target=self.handle_client_requests, args=(client_socket,))

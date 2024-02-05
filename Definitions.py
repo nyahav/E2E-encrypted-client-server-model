@@ -4,13 +4,24 @@ from enum import *
 import struct
 
 # Constants
+class Color(Enum):
+    RESET = '\033[0m'
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    PURPLE = '\033[95m'
+def colored_text(text, color):
+    return f"{color.value}{text}{Color.RESET.value}"
+# Example usage:
+#print(colored_text("This is red text", Color.RED))
 
 # Values
 VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
 MAX_PORT_VALUE = 65535
-DATABASE_NAME = "server.db"
+
 
 #  Lengths
 UUID_LEN = 16
@@ -52,11 +63,11 @@ class ResponseMessage(IntEnum):
     GENERAL_ERROR=1609,
 
 class MessageServerToAuth(IntEnum):
-        REGISTER_MESSAGE_SERVER = 1025,
-
+    REGISTER_MESSAGE_SERVER = 1025,
 class Request(ABC):
     def __init__(self):
         self.version = VERSION
+        
 
     @classmethod
     def pack(cls, client_id, version, code, payload):
