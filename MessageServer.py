@@ -104,9 +104,10 @@ def main():
 
     #register this message server to the authentication server
     auth_port_number =  message_server.encryption_helper.get_auth_port_number()
+    auth_ip_address='127.0.0.1'
     register_data = r.register_server(message_server.server_id,message_server.server_name, message_server.symmetric_key)
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    auth_address = ('127.0.0.1', auth_port_number)
+    auth_address = (auth_ip_address, auth_port_number)
     sign_to_auth_sock.connect(auth_address)
     sign_to_auth_sock.send(register_data)
 
