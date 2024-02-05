@@ -17,16 +17,6 @@ class AuthenticationServer:
        self.clients = {}
        self.servers = {}
      
-       
-       #initialize phase
-    def load_port_info(self):
-       try:
-           with open("port.info", "r") as file:
-               port = int(file.read().strip())
-               return port
-       except FileNotFoundError:
-           print("Warning: port.info file not found. Using default port 1256.")
-           return 1256
 
     
     def read_server_list(self, file_path):

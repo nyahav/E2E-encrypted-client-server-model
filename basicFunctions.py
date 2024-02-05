@@ -4,10 +4,9 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad,unpad
 from Definitions import Request
-   
-class EncryptionHelper:
-    # Function for encrypting a message using AES-CBC
-    @staticmethod
+
+#move both function into class so can be access from all entnties
+# Function for encrypting a message using AES-CBC
     def encrypt_message(message, key, iv):
         padded_message = pad(message.encode(), AES.block_size)
         cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -79,10 +78,22 @@ class EncryptionHelper:
     key = b"your_secure_key"  # Replace with a strong, unique key
     iv = helper.get_random_bytes(AES.block_size)  # Generate a random initialization vector
 
+<<<<<<< HEAD
     encrypted_message = helper.encrypt_message(message, key, iv)
     decrypted_message = helper.decrypt_message(encrypted_message, key, iv)
+=======
+def get_auth_port_number():
+    try:
+        with open("port.info", 'r') as file:
+            auth_port_num = file.readline().strip()
+        return int(auth_port_num)
+    except (FileNotFoundError, ValueError):
+        # Return 1236 if file doesn't exist or if the content is not an integer
+        return 1236
 
-    print(f"Original message: {message}")
-    print(f"Encrypted message: {encrypted_message.hex()}")
-    print(f"Decrypted message: {decrypted_message}")
-    """
+
+def serialize_response(self, response):
+        # It's responsible for converting a response object, which contains both a response code and an optional payload,
+        # into a string format that can be transmitted over the network to the client.
+        return f"{response[0]}:{response[1]}"
+"""
