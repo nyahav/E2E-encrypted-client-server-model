@@ -6,6 +6,7 @@ from Crypto.Util.Padding import pad,unpad
 from Definitions import Request
 
 #move both function into class so can be access from all entnties
+class EncryptionHelper:
 # Function for encrypting a message using AES-CBC
     def encrypt_message(message, key, iv):
         padded_message = pad(message.encode(), AES.block_size)

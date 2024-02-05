@@ -47,7 +47,6 @@ class AuthenticationServer:
             pass  # File doesn't exist yet
 
         return server_list
-
     def load_registered_servers(self):
         server_list = self.read_server_list("msg_server_list.info")
         for server in server_list:
@@ -111,7 +110,7 @@ class AuthenticationServer:
                 response_data = self.load_registered_servers(payload)
     
             else:
-                response_data = (ResponseAuth.GENERAL_ERROR,)
+                response_data = (ResponseMessage.GENERAL_ERROR,)
 
             # Ensure that the response_data is encoded before sending
             encoded_response_data = self.encryption_helper.serialize_response(response_data)
@@ -119,7 +118,7 @@ class AuthenticationServer:
 
         except Exception as e:
             print(f"Error handling client: {e}")
-            response_data = (ResponseAuth.GENERAL_ERROR,)
+            response_data = (ResponseMessage.GENERAL_ERROR,)
 
         finally:
             # Assign the response_data to self.encryption_helper.receive_response
@@ -132,7 +131,6 @@ class AuthenticationServer:
         header_size = struct.calcsize(header_format)
         header = struct.unpack(header_format, response_payload[:header_size])
 
-       
         request_type = header[2]  # Assuming 'Code' field corresponds to the request type
         payload_size = header[3]
         payload = response_payload[header_size:header_size + payload_size]
@@ -213,7 +211,8 @@ class AuthenticationServer:
         server_socket.bind(("localhost", self.port))
         server_socket.listen(5)
         print(f"Authentication server listening on port {self.port}...")
-    #consider adding switch case for requests
+
+        # Consider adding switch case for requests
         while True:
             client_socket, addr = server_socket.accept()
             client_thread = threading.Thread(target=self.handle_client_requests, args=(client_socket,))

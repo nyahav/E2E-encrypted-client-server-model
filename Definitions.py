@@ -16,8 +16,6 @@ def colored_text(text, color):
 # Example usage:
 #print(colored_text("This is red text", Color.RED))
 
-print(sentence)
-print(line)
 # Values
 VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
@@ -42,9 +40,8 @@ REQUEST_HEADER_LEN = CLIENT_ID_LEN + VERSION_LEN + CODE_LEN + PAYLOADSIZE_LEN
 RESPONSE_HEADER_LEN=VERSION_LEN+CODE_LEN+PAYLOADSIZE_LEN
 
 # The available request codes which are sent to authentication server by the client.
-class RequestAuth(IntEnum):
+class ClientRequestToAuth(IntEnum):
     REGISTER_CLIENT = 1024,
-    REGISTER_SERVER = 1025,
     REQUEST_LIST_OF_MESSAGE_SERVERS=1026,
     GET_SYMETRIC_KEY = 1027,
     
@@ -59,13 +56,14 @@ class ResponseAuth(IntEnum):
     REGISTER_FAILURE_RESP = 1601,
     RESPONSE_MESSAGE_SERVERS=1602,
     RESPONSE_SYMETRIC_KEY= 1603,
-    GENERAL_ERROR=1609,
  # The available response codes which the message server  send to a client.
 class ResponseMessage(IntEnum):
     APPROVE_SYMETRIC_KEY = 1604,
     APPROVE_MESSAGE_RECIVED = 1605,
     GENERAL_ERROR=1609,
 
+class MessageServerToAuth(IntEnum):
+    REGISTER_MESSAGE_SERVER = 1025,
 class Request(ABC):
     def __init__(self):
         self.version = VERSION
