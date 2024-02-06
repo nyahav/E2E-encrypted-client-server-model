@@ -4,6 +4,7 @@ from Definitions import Request, VERSION, ResponseAuth
 
 HEADER_SIZE = "<HHI"
 
+
 class SpecificRequest(Request):
     def __init__(self):
         super().__init__()

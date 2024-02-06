@@ -7,15 +7,15 @@ from basicFunctions import *
 
 
 class Client:
-    def __init__(self,auth_server_ip, auth_server_port, message_server_ip, message_server_port):
-      
-        self.client_ID, self.clientName, self.client_aes_key,self.ip_address, self.port = self.read_client_info()
+    def __init__(self, auth_server_ip, auth_server_port, message_server_ip, message_server_port):
+
+        self.client_ID, self.clientName, self.client_aes_key, self.ip_address, self.port = self.read_client_info()
         self.auth_server_address = self.ip_address
         self.auth_server_port = self.port
-        server_list=""
+        server_list = ""
         self.ticket = None
-        self.request_instance = ClientComm.SpecificRequest(client_address=self.ip_address,client_port=self.port)
-        #connections
+        self.request_instance = ClientComm.SpecificRequest(client_address=self.ip_address, client_port=self.port)
+        # connections
         self.auth_server_ip = auth_server_ip
         self.auth_server_port = auth_server_port
         self.message_server_ip = message_server_ip
@@ -32,7 +32,7 @@ class Client:
             with open("me.info", "r") as file:
                 address = file.readline().strip()
                 parts = address.split(':')
-                
+
                 if len(parts) != 2:
                     raise ValueError("Invalid address format in me.info file")
 
@@ -47,46 +47,45 @@ class Client:
             exit()
 
     def register_with_auth_server(self):
-            #take this out to anouther function to combine with read_client_info
-            
-            username = input("Enter username: ")
-            password = input("Enter password: ")
+        # take this out to anouther function to combine with read_client_info
 
-            # Add null terminator if missing
-            if username[-1] != '\0':
-                username += '\0'
-            if password[-1] != '\0':
-                password += '\0'
+        username = input("Enter username: ")
+        password = input("Enter password: ")
 
-            # Validate username
-            if len(username) < 5 or len(username) > 30:
-                raise ValueError("Username must be between 5 and 30 characters long.")
-            if not username.isalnum():
-                raise ValueError("Username must consist only of alphanumeric characters.")
+        # Add null terminator if missing
+        if username[-1] != '\0':
+            username += '\0'
+        if password[-1] != '\0':
+            password += '\0'
 
-            # Validate password
-            if len(password) < 8 or len(password) > 30:
-                raise ValueError("Password must be between 8 and 30 characters long.")
-            if not password.isalnum():
-                raise ValueError("Password must consist only of alphanumeric characters.")
+        # Validate username
+        if len(username) < 5 or len(username) > 30:
+            raise ValueError("Username must be between 5 and 30 characters long.")
+        if not username.isalnum():
+            raise ValueError("Username must consist only of alphanumeric characters.")
 
-         
-            salted_username = username + '\0' * (255 - len(username))
-            salted_password = username + '\0' * (255 - len(username))
-        
-            request_data = self.request_instance.register_client(salted_username,salted_password)
+        # Validate password
+        if len(password) < 8 or len(password) > 30:
+            raise ValueError("Password must be between 8 and 30 characters long.")
+        if not password.isalnum():
+            raise ValueError("Password must consist only of alphanumeric characters.")
 
-            # Send the request to the authentication server and receive the response
-            self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
-            response = self.request_instance.send_request(request_data)
-               #/not need to be hard coded
-            if response['Code'] != 1600:
-                print("Error: Registration failed.")
-                return
+        salted_username = username + '\0' * (255 - len(username))
+        salted_password = username + '\0' * (255 - len(username))
 
-            # Save the client ID
-            self.client_id = response['Payload']['client_id']
-            print("Registration successful.")
+        request_data = self.request_instance.register_client(salted_username, salted_password)
+
+        # Send the request to the authentication server and receive the response
+        self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
+        response = self.request_instance.send_request(request_data)
+        # /not need to be hard coded
+        if response['Code'] != 1600:
+            print("Error: Registration failed.")
+            return
+
+        # Save the client ID
+        self.client_id = response['Payload']['client_id']
+        print("Registration successful.")
 
     def parse_server_list(self, payload):
         server_list = []
@@ -105,7 +104,8 @@ class Client:
             # Use server_id as a key and create a tuple with server name and IP
             server_list.append({
                 'server_id': server_id,
-                'server_info': (server_name.decode().rstrip('\x00'), f"192.168.1.{server_id}")  # Replace with actual IP logic
+                'server_info': (server_name.decode().rstrip('\x00'), f"192.168.1.{server_id}")
+                # Replace with actual IP logic
             })
 
         return server_list
@@ -134,7 +134,7 @@ class Client:
                 print("Invalid selection. Please enter a valid server number.")
 
     def request_aes_key(self, client_ID, server_ID):
-    #Requests an AES key from the authentication server for a specific server.
+        # Requests an AES key from the authentication server for a specific server.
 
         nonce_length = 8
         nonce = secrets.token_bytes(nonce_length)
@@ -152,13 +152,13 @@ class Client:
         """Sends an authenticator and ticket to the messaging server."""
 
         time_stamp = time.time()
-       
+
         # Pack the authenticator data using struct
         authenticator_data = struct.pack("<BI16s16sQ",
-                                        VERSION,  # Version (1 byte)
-                                        client_ID.encode(),  # Client ID (16 bytes)
-                                        server_ID.encode(),  # Server ID (16 bytes)
-                                        int(time_stamp))  # Creation time (8 bytes)
+                                         VERSION,  # Version (1 byte)
+                                         client_ID.encode(),  # Client ID (16 bytes)
+                                         server_ID.encode(),  # Server ID (16 bytes)
+                                         int(time_stamp))  # Creation time (8 bytes)
         authenticator = encrypt_message(authenticator_data, self.messaging_server_key, get_random_bytes(16))
 
         # Create the request data
@@ -167,7 +167,7 @@ class Client:
         return request_data
 
     def messaging_the_message_server(self, aes_key):
-       
+
         message = input("Enter your message: ")
 
         # Generate a random 16-byte IV (initialization vector)
@@ -189,13 +189,14 @@ class Client:
         self.auth_sock.close()
         self.message_sock.close()
 
+
 if __name__ == "__main__":
-    client = Client("127.0.0.1", 1234, "127.0.0.1", 5678)  
+    client = Client("127.0.0.1", 1234, "127.0.0.1", 5678)
     client.register_with_auth_server()
     client.request_server_list()
     server_list = client.request_server_list()
     selected_server_id = client.prompt_user_for_server_selection(server_list)
-    client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id']) 
-    client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id']) 
-    client.messaging_the_message_server(client.aes_key)  
+    client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id'])
+    client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id'])
+    client.messaging_the_message_server(client.aes_key)
     client.close_connections()

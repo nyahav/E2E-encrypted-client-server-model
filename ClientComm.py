@@ -1,8 +1,9 @@
-from Definitions import Request, VERSION,ClientRequestToAuth, RequestMessage
+from Definitions import Request, VERSION, ClientRequestToAuth, RequestMessage
 import struct
 import socket
 
 HEADER_SIZE = "<16sHHI"  # Format string for struct
+
 
 class SpecificRequest(Request):
     def __init__(self, auth_server_address, auth_server_port):
@@ -13,27 +14,31 @@ class SpecificRequest(Request):
 
     def register_client(self, username, password):
         payload = username.encode() + password.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.REGISTER_CLIENT, len(payload))
+        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.REGISTER_CLIENT,
+                             len(payload))
         request_data = header + payload
         response = self.send_request(request_data)
         return response
 
     def request_message_server(self):
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS, 0)
+        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION,
+                             ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS, 0)
         request_data = header  # No payload for this request
         response = self.send_request(request_data)
         return response
 
     def request_aes_key_from_auth(self, client_ID, server_ID, nonce):
         payload = client_ID.encode() + server_ID.encode() + nonce.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.GET_SYMETRIC_KEY, len(payload))
+        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.GET_SYMETRIC_KEY,
+                             len(payload))
         request_data = header + payload
         response = self.send_request(request_data)
         return response
 
     def sending_aes_key_to_message_server(self, authenticator, ticket):
         payload = authenticator.encode() + ticket.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, RequestMessage.SEND_SYMETRIC_KEY, len(payload))
+        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, RequestMessage.SEND_SYMETRIC_KEY,
+                             len(payload))
         request_data = header + payload
         response = self.send_request(request_data)
         return response
