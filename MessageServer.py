@@ -7,6 +7,13 @@ from MessageComm import SpecificRequest
 
 class MessageServer:
     def __init__(self, message_server_num):
+
+        # Yet to be initialized
+        self.port = None
+        self.symmetric_key = None
+        self.server_id = None
+        self.server_name = None
+
         self.encryption_helper = EncryptionHelper()
         self.server_num = message_server_num
         self.read_server_info()  # Read info from msg(#).info
@@ -54,7 +61,7 @@ class MessageServer:
     # Function to get an AES key from the message server
     def receive_aes_key_from_client(self, sock, authenticator, ticket):
         try:
-            aes_key = decrypt_ticket_and_aes_key(ticket, authenticator)
+            aes_key = self.decrypt_ticket_and_aes_key(ticket, authenticator)
             # Receive the encrypted message from the client
             iv, encrypted_message = self.encryption_helper.receive_response(sock).split(' ')
             iv = bytes.fromhex(iv)
@@ -68,7 +75,7 @@ class MessageServer:
             print("Error")
 
     def decrypt_ticket_and_aes_key(ticket, authenticator):
-        pass
+        return 1
 
     def receive_message_from_client(self, sock):
         try:
@@ -95,8 +102,8 @@ class MessageServer:
 
 def main():
     r = SpecificRequest()
-    mServer_num = 1  # Define your server number or ID here, different for every Thread
-    message_server = MessageServer(mServer_num)
+    message_server_num = 1  # Define your server number or ID here, different for every Thread
+    message_server = MessageServer(message_server_num)
 
     # register this message server to the authentication server
     auth_port_number = message_server.encryption_helper.get_auth_port_number()

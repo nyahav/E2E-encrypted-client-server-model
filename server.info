@@ -1,5 +1,1 @@
-127.0.0.1:1234
-
-
-
-#list of servers
+127.0.0.1:2345,server_id,server_name,AES_key
