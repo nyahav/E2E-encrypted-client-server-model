@@ -71,7 +71,14 @@ class EncryptionHelper:
             # into a string format that can be transmitted over the network to the client.
             return f"{response[0]}:{response[1]}"
     
-   
+    @staticmethod
+    def unpack(response_payload, header_format):
+        # Implement the unpacking logic for the response payload
+        header_size = struct.calcsize(header_format)
+        header = struct.unpack(header_format, response_payload[:header_size])
+        payload_size = header[3]
+        payload = response_payload[header_size:header_size + payload_size]
+        return header, payload
     """
     usage example on how to encrypt_message and decrypt_message
     helper = EncryptionHelper()

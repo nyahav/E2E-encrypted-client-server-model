@@ -4,9 +4,16 @@ from Definitions import *
 from basicFunctions import *
 from MessageComm import SpecificRequest
 class MessageServer:
-    def __init__(self, mServer_num):
+    def __init__(self, message_server_num):
+
+        # Yet to be initialized
+        self.port = None
+        self.symmetric_key = None
+        self.server_id = None
+        self.server_name = None
+
         self.encryption_helper = EncryptionHelper()
-        self.server_num = mServer_num
+        self.server_num = message_server_num
         self.read_server_info()  # Read info from msg(#).info
 
     def read_server_info(self):
@@ -16,7 +23,7 @@ class MessageServer:
                 (self.IP, self.port) = lines[0].strip().split(":")
                 self.server_name = lines[1].strip()
                 self.server_id = bytes.fromhex(lines[2].strip())
-                self.symmetric_key = base64.b64decode(lines[3].strip()+'=')
+                self.symmetric_key = base64.b64decode(lines[3].strip() + '=')
                 self.port = int(self.port)
 
     def write_server_info(self):
@@ -25,7 +32,6 @@ class MessageServer:
             file.write(f"{self.server_name}\n")
             file.write(f"{self.server_id.hex()}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
-
 
     def handle_client_request(self, client_socket):
         """Handles incoming client requests."""
