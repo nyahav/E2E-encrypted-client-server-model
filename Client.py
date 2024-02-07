@@ -7,48 +7,38 @@ from basicFunctions import *
 
 
 class Client:
-    def __init__(self,auth_server_ip, auth_server_port, message_server_ip, message_server_port):
-      
-        self.client_ID, self.clientName, self.client_aes_key,self.ip_address, self.port = self.read_client_info()
-        self.auth_server_address = self.ip_address
-        self.auth_server_port = self.port
-        server_list=""
-        self.ticket = None
-        self.request_instance = ClientComm.SpecificRequest(client_address=self.ip_address,client_port=self.port)
-        #connections
+    def __init__(self,auth_server_ip, auth_server_port):
+        self.encryption_helper=EncryptionHelper()
+        self.clientName,self.client_ID  = self.read_client_info()
         self.auth_server_ip = auth_server_ip
         self.auth_server_port = auth_server_port
-        self.message_server_ip = message_server_ip
-        self.message_server_port = message_server_port
-
+        self.message_server_ip=""
+        self.message_server_port=""
+        self.client_ID=""
+        server_list={}
+        self.ticket = None
+              
         # Create persistent connections
         self.auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.auth_sock.connect((self.auth_server_ip, self.auth_server_port))
-        self.message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.message_sock.connect((self.message_server_ip, self.message_server_port))
-
+        #self.message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #self.message_sock.connect((self.message_server_ip, self.message_server_port))
     def read_client_info(self):
         try:
             with open("me.info", "r") as file:
-                address = file.readline().strip()
-                parts = address.split(':')
-                
-                if len(parts) != 2:
-                    raise ValueError("Invalid address format in me.info file")
+                lines = file.readlines()
+                if len(lines) < 2:
+                    raise ValueError("Invalid format in me.info file")
 
-                ip_address, port_str = parts
-                port = int(port_str)
-
-                clientName = file.readline().strip()
-                client_ID = file.readline().strip()
-                return client_ID, clientName, ip_address, port
+                client_name = lines[0].strip()
+                client_ID = lines[1].strip()
+                return client_ID, client_name
         except FileNotFoundError:
             print("Error: me.info file not found.")
             exit()
 
     def register_with_auth_server(self):
-            #take this out to anouther function to combine with read_client_info
-            
+        while True:
             username = input("Enter username: ")
             password = input("Enter password: ")
 
@@ -60,33 +50,33 @@ class Client:
 
             # Validate username
             if len(username) < 5 or len(username) > 30:
-                raise ValueError("Username must be between 5 and 30 characters long.")
-            if not username.isalnum():
-                raise ValueError("Username must consist only of alphanumeric characters.")
+                print("Error: Username must be between 5 and 30 characters long.")
+                continue
+           
 
             # Validate password
             if len(password) < 8 or len(password) > 30:
-                raise ValueError("Password must be between 8 and 30 characters long.")
-            if not password.isalnum():
-                raise ValueError("Password must consist only of alphanumeric characters.")
-
-         
-            salted_username = username + '\0' * (255 - len(username))
-            salted_password = username + '\0' * (255 - len(username))
+                print("Error: Password must be between 8 and 30 characters long.")
+                continue
         
-            request_data = self.request_instance.register_client(salted_username,salted_password)
 
-            # Send the request to the authentication server and receive the response
-            self.request_instance = ClientComm.SpecificRequest(self.auth_server_address, self.auth_server_port)
-            response = self.request_instance.send_request(request_data)
-               #/not need to be hard coded
-            if response['Code'] != 1600:
-                print("Error: Registration failed.")
-                return
+            # Continue if validation passes
+            break
+        print("salting has begun")
+        salted_username = username + '\0' * (255 - len(username))
+        salted_password = password + '\0' * (255 - len(username))
 
-            # Save the client ID
-            self.client_id = response['Payload']['client_id']
-            print("Registration successful.")
+        request_data = r.register_client(salted_username, salted_password)
+        response = r.send_request(request_data)
+        header,payload=self.encryption_helper.unpack(response)
+        if header[2] != 1600:
+            print("Error: Registration failed.")
+            return
+
+        # Save the client ID
+        self.client_id = payload
+        print("Registration successful.")
+
 
     def parse_server_list(self, payload):
         server_list = []
@@ -190,7 +180,8 @@ class Client:
         self.message_sock.close()
 
 if __name__ == "__main__":
-    client = Client("127.0.0.1", 1234, "127.0.0.1", 5678)  
+    client = Client("127.0.0.1", 1235)  
+    r = ClientComm.SpecificRequest(client.auth_server_ip, client.auth_server_port)
     client.register_with_auth_server()
     client.request_server_list()
     server_list = client.request_server_list()

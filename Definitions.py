@@ -3,6 +3,13 @@ from abc import ABC, abstractmethod
 from enum import *
 import struct
 
+
+
+class Headers(Enum):
+    MESSAGE_FORMAT = "<16sHHI"
+    CLIENT_FORMAT = "<16sHHI"
+    AUTH_FORMAT = "<HHI"
+
 # Constants
 class Color(Enum):
     RESET = '\033[0m'
@@ -17,6 +24,7 @@ def colored_text(text, color):
 #print(colored_text("This is red text", Color.RED))
 
 # Values
+SERVERS_FILE = "servers.info"
 VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
