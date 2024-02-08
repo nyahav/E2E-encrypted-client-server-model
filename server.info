@@ -1,1 +1,2 @@
-127.0.0.1:2345,server_id,server_name,AES_key
+192.168.1.1:8080,1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d,First Server Ever :),jHHCjXCAOYGBf5tnKms9eu6IGi7NCqP2Ie2WALraCJ8=
+192.168.1.2:9090,abcdef1234567890abcdef1234567890,PingPong - The only server always sending and receiving data,Sj8I7kHsJ2/aQYSOKUxT8CEeJicjeysvt51pxI6MGg4=

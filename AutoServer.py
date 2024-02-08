@@ -1,4 +1,5 @@
 import base64
+import os
 import time
 import uuid
 import socket
@@ -50,14 +51,21 @@ class AuthenticationServer:
         except IOError as e:
             print(f"An error occurred while writing to the file: {e}")
 
-    def add_message_server(self, server_id, ip, port, server_name, message_aes_key):
+    def add_message_server(self, server_name, message_aes_key, port):
+
+        server_id = uuid.uuid4()  # binary form of server_id
+        # Python script to open the file named 'ExampleServer.txt' and read the first line
+
+        # Open the file in read mode
+
         self.servers[server_id] = {
-            'ip': ip,
+            'ip': '127.0.0.1',
             'port': port,
             'server_name': server_name,
             'message_AES_key': message_aes_key
         }
         self.write_server_list(Definitions.SERVERS_FILE)
+        return server_id
 
     def load_clients(self):
         # Load client information from file (if exists)
@@ -90,11 +98,11 @@ class AuthenticationServer:
         try:
             response_data = None
             request_type = None
-
+            client_address, client_port = client_socket.getpeername()
             # Receive the request from the client
             request_data = client_socket.recv(1024)
-            header, payload = self.encryption_helper.unpack(request_data, Headers.CLIENT_FORMAT)
-            request_type = header[2]
+            header, payload = self.encryption_helper.unpack(Headers.CLIENT_FORMAT.value, request_data)
+            request_type = header[Header.CODE.value]
             # Use the updated parse_request function
             # request_type, payload = self.encryption_helper.parse_request(request_data)
 
@@ -109,8 +117,15 @@ class AuthenticationServer:
             elif request_type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
                 response_data = self.handle_request_server_list_(client_socket)
             elif request_type == MessageServerToAuth.REGISTER_MESSAGE_SERVER:
-                print("message from MessageServer")
-                response_data = self.add_message_server(payload)
+                message_server_payload_format = '<255s32sH'
+                # Unpack the data
+                server_name, aes_key, port = struct.unpack(message_server_payload_format, payload)
+
+                # Decode the server name to a string if necessary (assuming UTF-8 encoding, adjust as needed)
+                server_name = server_name.decode('utf-8').rstrip('\x00').strip()  # Removing potential null padding
+                aes_key = base64.b64encode(aes_key).decode('utf-8')
+
+                response_data = self.add_message_server(server_name, aes_key, port)
 
             else:
                 response_data = (ResponseMessage.GENERAL_ERROR,)
@@ -124,9 +139,6 @@ class AuthenticationServer:
             response_data = (ResponseMessage.GENERAL_ERROR,)
 
         finally:
-            # Assign the response_data to self.encryption_helper.receive_response
-
-            client_socket.send(response_data)
             client_socket.close()
 
     def save_registered_servers(self):

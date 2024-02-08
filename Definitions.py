@@ -34,8 +34,18 @@ PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
 MAX_PORT_VALUE = 65535
 
+
+# Header placements
+class Header(Enum):
+    CLIENT_ID = 0
+    VERSION = 1
+    CODE = 2
+    PAYLOAD_SIZE = 3
+
+
 #  Lengths
 UUID_LEN = 16
+SERVER_ID_LENGTH = 16
 CLIENT_ID_LEN = 16
 USERNAME_LEN = 255
 PUBLIC_KEY_LEN = 160

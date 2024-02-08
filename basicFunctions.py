@@ -76,7 +76,7 @@ class EncryptionHelper:
         return f"{response[0]}:{response[1]}"
 
     @staticmethod
-    def unpack(response_payload, header_format):
+    def unpack(header_format, response_payload):
         # Implement the unpacking logic for the response payload
         header_size = struct.calcsize(header_format)
         header = struct.unpack(header_format, response_payload[:header_size])

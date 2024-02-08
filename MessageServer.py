@@ -25,7 +25,7 @@ class MessageServer:
                 (self.IP, self.port) = lines[0].strip().split(":")
                 self.server_name = lines[1].strip()
                 self.server_id = bytes.fromhex(lines[2].strip())
-                self.symmetric_key = base64.b64decode(lines[3].strip() + '=')
+                self.symmetric_key = base64.b64decode(lines[3].strip())
                 self.port = int(self.port)
 
     def write_server_info(self):
@@ -109,7 +109,7 @@ def main():
     auth_port_number = message_server.encryption_helper.get_auth_port_number()
     auth_ip_address = '127.0.0.1'
     register_data = r.register_server(message_server.server_id, message_server.server_name,
-                                      message_server.symmetric_key)
+                                      message_server.symmetric_key, message_server.port)
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     auth_address = (auth_ip_address, auth_port_number)
     sign_to_auth_sock.connect(auth_address)

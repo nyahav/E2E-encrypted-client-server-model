@@ -10,8 +10,8 @@ class SpecificRequest(Request):
         super().__init__()
 
     @staticmethod
-    def register_server(server_id, username, AES):
-        payload = username.encode() + AES
+    def register_server(server_id, server_name, aes_key, port):
+        payload = server_name.encode().ljust(255) + aes_key + struct.pack('<H', port)
         # Pack the header with client_id, version, and the length of the payload
         header = struct.Struct(HEADER_SIZE).pack(server_id, VERSION, MessageServerToAuth.REGISTER_MESSAGE_SERVER,
                                                  len(payload))
