@@ -4,11 +4,10 @@ from enum import *
 import struct
 
 
-class Headers(Enum):
+class HeadersFormat(Enum):
     MESSAGE_FORMAT = "<16sHHI"
     CLIENT_FORMAT = "<16sHHI"
-    AUTH_FORMAT = "<HHI"
-
+    AUTH_RESP_HEADER = "<BHL"
 
 # Constants
 class Color(Enum):

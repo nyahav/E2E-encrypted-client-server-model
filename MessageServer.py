@@ -51,7 +51,6 @@ class MessageServer:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
             client_socket.send(self.encryption_helper.serialize_response(response))
-
         except Exception as e:
             print(f"Error handling client: {e}")
 
@@ -99,7 +98,6 @@ class MessageServer:
 
     # Define receive_response and decrypt_message methods as needed
 
-
 def main():
     r = SpecificRequest()
     message_server_num = 1  # Define your server number or ID here, different for every Thread
@@ -110,10 +108,15 @@ def main():
     auth_ip_address = '127.0.0.1'
     register_data = r.register_server(message_server.server_id, message_server.server_name,
                                       message_server.symmetric_key, message_server.port)
+
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     auth_address = (auth_ip_address, auth_port_number)
     sign_to_auth_sock.connect(auth_address)
     sign_to_auth_sock.send(register_data)
+    resp_from_auth = sign_to_auth_sock.recv(1024)
+    print(f"received from Auth: {resp_from_auth}")
+    version, response_type, server_id = SpecificRequest.unpack_register_message_success(resp_from_auth)
+    print(f"server_id is: {server_id}")
 
     server_address = (message_server.IP, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

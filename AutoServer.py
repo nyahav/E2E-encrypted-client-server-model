@@ -4,12 +4,11 @@ import time
 import uuid
 import socket
 import threading
-
 import Definitions
 from Definitions import *
 from MessageServer import MessageServer
 from basicFunctions import EncryptionHelper
-
+from AuthComm import AuthCommHelper
 
 # client list need to be global
 class AuthenticationServer:
@@ -94,14 +93,15 @@ class AuthenticationServer:
                 file.write(
                     f"{client_id}:{client_info['name']}:{client_info['password_hash']}:{client_info['last_seen']}\n")
 
-    def handle_client_requests(self, client_socket, ):
+    def handle_client_requests(self, client_socket):
         try:
+            auth_comm_helper = ResponseAuth
             response_data = None
             request_type = None
             client_address, client_port = client_socket.getpeername()
             # Receive the request from the client
             request_data = client_socket.recv(1024)
-            header, payload = self.encryption_helper.unpack(Headers.CLIENT_FORMAT.value, request_data)
+            header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
             request_type = header[Header.CODE.value]
             # Use the updated parse_request function
             # request_type, payload = self.encryption_helper.parse_request(request_data)
@@ -125,14 +125,13 @@ class AuthenticationServer:
                 server_name = server_name.decode('utf-8').rstrip('\x00').strip()  # Removing potential null padding
                 aes_key = base64.b64encode(aes_key).decode('utf-8')
 
-                response_data = self.add_message_server(server_name, aes_key, port)
-
+                new_server_id = self.add_message_server(server_name, aes_key, port)
+                response_data = AuthCommHelper.register_server_success(new_server_id)
             else:
                 response_data = (ResponseMessage.GENERAL_ERROR,)
 
             # Ensure that the response_data is encoded before sending
-            encoded_response_data = self.encryption_helper.serialize_response(response_data)
-            client_socket.send(encoded_response_data)
+            client_socket.send(response_data)
 
         except Exception as e:
             print(f"Error handling client: {e}")

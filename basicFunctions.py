@@ -4,7 +4,7 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
 from Definitions import Request
-
+from Definitions import Header
 
 # move both function into class so can be access from all entities
 class EncryptionHelper:
@@ -69,18 +69,15 @@ class EncryptionHelper:
             # Handle the case where there are not enough parts
             raise ValueError("Invalid request_data format")
 
-    @staticmethod
-    def serialize_response(self, response):
-        # It's responsible for converting a response object, which contains both a response code and an optional payload
-        # into a string format that can be transmitted over the network to the client.
-        return f"{response[0]}:{response[1]}"
+
+
 
     @staticmethod
     def unpack(header_format, response_payload):
         # Implement the unpacking logic for the response payload
         header_size = struct.calcsize(header_format)
         header = struct.unpack(header_format, response_payload[:header_size])
-        payload_size = header[3]
+        payload_size = header[Header.PAYLOAD_SIZE.value]
         payload = response_payload[header_size:header_size + payload_size]
         return header, payload
     """
