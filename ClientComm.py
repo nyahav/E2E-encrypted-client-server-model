@@ -34,11 +34,20 @@ class SpecificRequest(Request):
             return response
             
 
+<<<<<<< Updated upstream
         def request_message_server(self):
             request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1026,0,0)
             response = self.my_request_instance.send_request(request_data)
             return response
             
+=======
+    def register_client(self, username, password):
+        payload = username.encode() + password.encode()
+        header = struct.Struct(Header_size).pack( b'\0', VERSION, ClientRequestToAuth.REGISTER_CLIENT, len(payload))
+        request_data = header + payload
+        response = self.send_request(request_data)
+        return response
+>>>>>>> Stashed changes
 
         def request_aes_key_from_auth(self,client_ID,server_ID,nonce):
             payload = client_ID.encode() + server_ID.encode() + nonce.encode() 

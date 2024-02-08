@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // Existing configurations for AutoServer and Client
+        {
+            "name": "Launch AutoServer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/AutoServer.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Launch Client",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/Client.py",
+            "console": "integratedTerminal"
+        },
+        // New configuration for debugging both
+        {
+            "name": "Debug Both Files",
+            "type": "compound",
+            "configurations": [
+                "Launch AutoServer",
+                "Launch Client"
+            ],
+            "stopAll": true
+        }
+    ]
+}

@@ -1,8 +1,18 @@
 # all defenitions
-from abc import ABC, abstractmethod 
+from abc import ABC, abstractmethod
 from enum import *
 import struct
 
+<<<<<<< Updated upstream
+=======
+
+class Headers(Enum):
+    MESSAGE_FORMAT = "<16sHHI"
+    CLIENT_FORMAT = "<16sHHI"
+    AUTH_FORMAT = "<HHI"
+
+
+>>>>>>> Stashed changes
 # Constants
 class Color(Enum):
     RESET = '\033[0m'
@@ -11,10 +21,14 @@ class Color(Enum):
     YELLOW = '\033[93m'
     BLUE = '\033[94m'
     PURPLE = '\033[95m'
+
+
 def colored_text(text, color):
     return f"{color.value}{text}{Color.RESET.value}"
+
+
 # Example usage:
-#print(colored_text("This is red text", Color.RED))
+# print(colored_text("This is red text", Color.RED))
 
 # Values
 VERSION = 24
@@ -23,8 +37,17 @@ HOST = "127.0.0.1"  # localhost
 MAX_PORT_VALUE = 65535
 
 
+# Header placements
+class Header(Enum):
+    CLIENT_ID = 0
+    VERSION = 1
+    CODE = 2
+    PAYLOAD_SIZE = 3
+
+
 #  Lengths
 UUID_LEN = 16
+SERVER_ID_LENGTH = 16
 CLIENT_ID_LEN = 16
 USERNAME_LEN = 255
 PUBLIC_KEY_LEN = 160
@@ -36,38 +59,47 @@ MESSAGE_CONTENT_LEN = 4
 MESSAGE_ID_LEN = 4
 # Request Lengths
 REQUEST_HEADER_LEN = CLIENT_ID_LEN + VERSION_LEN + CODE_LEN + PAYLOADSIZE_LEN
-#Response Lengths
-RESPONSE_HEADER_LEN=VERSION_LEN+CODE_LEN+PAYLOADSIZE_LEN
+# Response Lengths
+RESPONSE_HEADER_LEN = VERSION_LEN + CODE_LEN + PAYLOADSIZE_LEN
+
 
 # The available request codes which are sent to authentication server by the client.
 class ClientRequestToAuth(IntEnum):
     REGISTER_CLIENT = 1024,
-    REQUEST_LIST_OF_MESSAGE_SERVERS=1026,
+    REQUEST_LIST_OF_MESSAGE_SERVERS = 1026,
     GET_SYMETRIC_KEY = 1027,
-    
+
+
 # The available request codes which are sent to message server by the client.
 class RequestMessage(IntEnum):
-    SEND_SYMETRIC_KEY = 1028, 
-    SEND_MESSAGE = 1029, 
+    SEND_SYMETRIC_KEY = 1028,
+    SEND_MESSAGE = 1029,
+
 
 # The available response codes which the authentication server  send to a client.
+
+
 class ResponseAuth(IntEnum):
     REGISTER_SUCCESS_RESP = 1600,
     REGISTER_FAILURE_RESP = 1601,
-    RESPONSE_MESSAGE_SERVERS=1602,
-    RESPONSE_SYMETRIC_KEY= 1603,
- # The available response codes which the message server  send to a client.
+    RESPONSE_MESSAGE_SERVERS = 1602,
+    RESPONSE_SYMETRIC_KEY = 1603,
+
+
+# The available response codes which the message server  send to a client.
 class ResponseMessage(IntEnum):
     APPROVE_SYMETRIC_KEY = 1604,
     APPROVE_MESSAGE_RECIVED = 1605,
-    GENERAL_ERROR=1609,
+    GENERAL_ERROR = 1609,
+
 
 class MessageServerToAuth(IntEnum):
     REGISTER_MESSAGE_SERVER = 1025,
+
+
 class Request(ABC):
     def __init__(self):
         self.version = VERSION
-        
 
     @classmethod
     def pack(cls, client_id, version, code, payload):
@@ -75,12 +107,12 @@ class Request(ABC):
             client_id, version, code, len(payload)
         )
         return header_data + payload
-    
+
     @classmethod
     def unpack_response(cls, response_payload):
         # Implement the unpacking logic for the response payload
-        header_size = struct.calcsize(cls.header.format)
-        header = struct.unpack(cls.header.format, response_payload[:header_size])
+        header_size = struct.calcsize(Headers.CLIENT_FORMAT.value)
+        header = struct.unpack(Headers.CLIENT_FORMAT.value, response_payload[:header_size])
 
         server_response = {
             'Version': header[1],
@@ -90,4 +122,3 @@ class Request(ABC):
         }
 
         return server_response
-

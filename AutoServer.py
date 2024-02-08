@@ -1,4 +1,5 @@
 import base64
+import os
 import time
 import uuid
 import socket
@@ -55,12 +56,30 @@ class AuthenticationServer:
                 "aes_key": base64.b64encode(server.symmetric_key).decode(),
             }
 
+<<<<<<< Updated upstream
     def save_servers(self):
         # Save server information to file
         with open("msg_server_list.info", "w") as file:
             for server_id, server_info in self.servers.items():
                 server_name = server_info.get("name")
                 aes_key = server_info.get("aes_key")
+=======
+    def add_message_server(self, server_name, message_aes_key, port):
+
+        server_id = uuid.uuid4()  # binary form of server_id
+        # Python script to open the file named 'ExampleServer.txt' and read the first line
+
+        # Open the file in read mode
+
+        self.servers[server_id] = {
+            'ip': '127.0.0.1',
+            'port': port,
+            'server_name': server_name,
+            'message_AES_key': message_aes_key
+        }
+        self.write_server_list(Definitions.SERVERS_FILE)
+        return server_id
+>>>>>>> Stashed changes
 
                 # Validate required fields
                 if not server_id or not server_name or not aes_key:
@@ -96,12 +115,17 @@ class AuthenticationServer:
         try:
             response_data = None
             request_type = None
-
+            client_address, client_port = client_socket.getpeername()
             # Receive the request from the client
             request_data = client_socket.recv(1024)
+<<<<<<< Updated upstream
             print( request_data)
             print("reqest data")
             request_type, payload=self.unpack_MessageServer(request_data)
+=======
+            header, payload = self.encryption_helper.unpack(Headers.CLIENT_FORMAT.value, request_data)
+            request_type = header[Header.CODE.value]
+>>>>>>> Stashed changes
             # Use the updated parse_request function
             #request_type, payload = self.encryption_helper.parse_request(request_data)
 
@@ -113,24 +137,40 @@ class AuthenticationServer:
                 response_data = (ResponseAuth.RESPONSE_SYMETRIC_KEY, {"client_id": client_id, "encrypted_key": encrypted_key, "encrypted_ticket": encrypted_ticket})
             elif request_type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
                 response_data = self.handle_request_server_list_(client_socket)
+<<<<<<< Updated upstream
             elif request_type == MessageServerToAuth. REGISTER_MESSAGE_SERVER:
                 print("message from MessageServer")
                 response_data = self.load_registered_servers(payload)
     
+=======
+            elif request_type == MessageServerToAuth.REGISTER_MESSAGE_SERVER:
+                message_server_payload_format = '<255s32sH'
+                # Unpack the data
+                server_name, aes_key, port = struct.unpack(message_server_payload_format, payload)
+
+                # Decode the server name to a string if necessary (assuming UTF-8 encoding, adjust as needed)
+                server_name = server_name.decode('utf-8').rstrip('\x00').strip()  # Removing potential null padding
+                aes_key = base64.b64encode(aes_key).decode('utf-8')
+
+                response_data = self.add_message_server(server_name, aes_key, port)
+
+>>>>>>> Stashed changes
             else:
                 response_data = (ResponseMessage.GENERAL_ERROR,)
 
             # Ensure that the response_data is encoded before sending
             encoded_response_data = self.encryption_helper.serialize_response(response_data)
             client_socket.send(encoded_response_data)
-
         except Exception as e:
             print(f"Error handling client: {e}")
             response_data = (ResponseMessage.GENERAL_ERROR,)
 
         finally:
+<<<<<<< Updated upstream
             # Assign the response_data to self.encryption_helper.receive_response
             self.encryption_helper.receive_response = response_data
+=======
+>>>>>>> Stashed changes
             client_socket.close()
    
     def unpack_MessageServer(cls, response_payload):
@@ -227,5 +267,10 @@ class AuthenticationServer:
             client_thread.start()
 
 if __name__ == "__main__":
+<<<<<<< Updated upstream
    auth_server = AuthenticationServer()
    auth_server.start()
+=======
+    auth_server = AuthenticationServer()
+    auth_server.start()
+>>>>>>> Stashed changes
