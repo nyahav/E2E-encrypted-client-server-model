@@ -3,36 +3,34 @@ import socket
 from Definitions import *
 from basicFunctions import *
 from MessageComm import SpecificRequest
+import secrets
 
 
 class MessageServer:
-    def __init__(self, message_server_num):
-
-        # Yet to be initialized
-        self.port = None
-        self.symmetric_key = None
-        self.server_id = None
-        self.server_name = None
-
+    def __init__(self, server_name, port=None, symmetric_key=None, server_id=None):
+        self.ip = '127.0.0.1'
+        self.port = port
+        self.server_name = server_name
+        self.symmetric_key = symmetric_key
+        self.server_id = server_id
         self.encryption_helper = EncryptionHelper()
-        self.server_num = message_server_num
-        self.read_server_info()  # Read info from msg(#).info
+        if port is None:
+            self.read_server_info()  # Read info from msg(#).info
 
     def read_server_info(self):
-        with open(f"msg{self.server_num}.info", "r") as f:
+        with open(f"{self.server_name}.info", "r") as f:
             lines = f.readlines()
             if len(lines) >= 4:
                 (self.IP, self.port) = lines[0].strip().split(":")
-                self.server_name = lines[1].strip()
-                self.server_id = bytes.fromhex(lines[2].strip())
-                self.symmetric_key = base64.b64decode(lines[3].strip())
+                self.server_id = bytes.fromhex(lines[1].strip())
+                self.symmetric_key = base64.b64decode(lines[2].strip())
                 self.port = int(self.port)
 
     def write_server_info(self):
-        with open(f"msg{self.server_num}.info", "w") as file:
-            file.write(f"{self.IP}:{self.port}\n")
-            file.write(f"{self.server_name}\n")
-            file.write(f"{self.server_id.hex()}\n")
+        with open(f"{self.server_name}.info", "w") as file:
+            file.write(f"{self.ip}:{self.port}\n")
+            print(type(self.server_id))
+            file.write(f"{self.server_id.hex}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
     def handle_client_request(self, client_socket):
@@ -98,16 +96,14 @@ class MessageServer:
 
     # Define receive_response and decrypt_message methods as needed
 
-def main():
-    r = SpecificRequest()
-    message_server_num = 1  # Define your server number or ID here, different for every Thread
-    message_server = MessageServer(message_server_num)
 
-    # register this message server to the authentication server
-    auth_port_number = message_server.encryption_helper.get_auth_port_number()
+def handle_server_registration(server_name, server_port, r):
+    eh = EncryptionHelper()
+    auth_port_number = eh.get_auth_port_number()
     auth_ip_address = '127.0.0.1'
-    register_data = r.register_server(message_server.server_id, message_server.server_name,
-                                      message_server.symmetric_key, message_server.port)
+    auth_aes_key = secrets.token_bytes(32)
+
+    register_data = r.register_server(bytes(16), server_name, auth_aes_key, server_port)
 
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     auth_address = (auth_ip_address, auth_port_number)
@@ -117,8 +113,17 @@ def main():
     print(f"received from Auth: {resp_from_auth}")
     version, response_type, server_id = SpecificRequest.unpack_register_message_success(resp_from_auth)
     print(f"server_id is: {server_id}")
+    new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id)
+    return new_message_server
 
-    server_address = (message_server.IP, message_server.port)
+
+def main():
+    r = SpecificRequest()
+    message_server = handle_server_registration("hello", 1145, r)
+    message_server.write_server_info()
+    # register this message server to the authentication server
+
+    server_address = (message_server.ip, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
     sock.listen(1)
