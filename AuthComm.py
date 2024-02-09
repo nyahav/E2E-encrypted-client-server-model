@@ -1,47 +1,43 @@
 import socket
 import struct
-from Definitions import Request, VERSION, ResponseAuth
+from Definitions import Request, VERSION, ResponseAuth, HeadersFormat
 
-HEADER_SIZE = "<HHI"
+resp_format = HeadersFormat.AUTH_RESP_HEADER.value
 
 
-class SpecificRequest(Request):
+class AuthCommHelper(Request):
     def __init__(self):
         super().__init__()
         # Ensure you have client_server_address and client_server_port attributes
 
-    def register_client_success(self, client_ID):
-        payload = client_ID.encode()
-        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP, len(payload)) + payload
+    @staticmethod
+    def register_client_success(client_id):
+        payload = client_id.bytes
+        resp_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP.value, len(payload))
+        resp_data += payload
+        return resp_data
+
+    @staticmethod
+    def register_server_success(server_id):
+        payload = server_id.bytes
+        resp_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP.value, len(payload))
+        resp_data += payload
+        return resp_data
+    @staticmethod
+    def register_client_failure():
+        request_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_FAILURE_RESP.value, 0)
         return request_data
 
-    def register_client_failure(self, client_ID):
-        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.REGISTER_FAILURE_RESP, 0)
+    @staticmethod
+    def response_message_servers(server_id, server_name):
+        payload = server_id.encode() + server_name.encode()
+        request_data = struct.pack(resp_format, VERSION, ResponseAuth.RESPONSE_MESSAGE_SERVERS.value, len(payload))
+        request_data += payload
         return request_data
 
-    def response_message_servers(self, server_ID, server_name):
-        payload = server_ID.encode() + server_name.encode()
-        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.RESPONSE_MESSAGE_SERVERS, len(payload)) + payload
+    @staticmethod
+    def response_symmetric_req(client_id, aes_key, ticket):
+        payload = client_id.encode() + aes_key.encode() + ticket.encode()
+        request_data = struct.pack(resp_format, VERSION, ResponseAuth.RESPONSE_SYMETRIC_KEY.value, len(payload))
+        request_data += payload
         return request_data
-
-    def response_symetric_req(self, client_ID, AES, ticket):
-        payload = client_ID.encode() + AES.encode() + ticket.encode()
-        request_data = struct.pack(HEADER_SIZE, VERSION, ResponseAuth.RESPONSE_SYMETRIC_KEY, len(payload)) + payload
-        return request_data
-
-    def send_request(self, request_data):
-        # Code for sending a request to the server
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-            # Connect to the server
-            client_socket.connect((self.client_server_address, self.client_server_port))
-
-            # Send the request data
-            client_socket.sendall(request_data)
-
-            # Receive the response data
-            response_data = client_socket.recv(1024)
-
-        # Unpack the response using the unpack_response method from the Request class
-        response = self.unpack_response(response_data)
-
-        return response

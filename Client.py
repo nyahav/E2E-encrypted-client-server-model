@@ -8,13 +8,13 @@ from basicFunctions import *
 
 class Client:
     def __init__(self,auth_server_ip, auth_server_port):
+        self.client_id = None
         self.encryption_helper=EncryptionHelper()
-        self.clientName,self.client_ID  = self.read_client_info()
+        self.clientName,self.client_id = self.read_client_info()
         self.auth_server_ip = auth_server_ip
         self.auth_server_port = auth_server_port
         self.message_server_ip=""
         self.message_server_port=""
-        self.client_ID=""
         server_list={}
         self.ticket = None
               
@@ -62,13 +62,13 @@ class Client:
 
             # Continue if validation passes
             break
-        print("salting has begun")
-        salted_username = username + '\0' * (255 - len(username))
-        salted_password = password + '\0' * (255 - len(username))
 
-        request_data = r.register_client(salted_username, salted_password)
-        response = r.send_request(request_data)
-        header,payload=self.encryption_helper.unpack(response)
+
+        request_data = r.MyRequest.register_client(username,password)
+        print(request_data)
+        self.auth_sock.send(request_data)
+        response=self.auth_sock.recv(1024)
+        header,payload=self.encryption_helper.unpack(Headers.CLIENT_FORMAT.value,response)
         if header[2] != 1600:
             print("Error: Registration failed.")
             return
@@ -180,7 +180,7 @@ class Client:
         self.message_sock.close()
 
 if __name__ == "__main__":
-    client = Client("127.0.0.1", 1235)  
+    client = Client("127.0.0.1", 1234)
     r = ClientComm.SpecificRequest(client.auth_server_ip, client.auth_server_port)
     client.register_with_auth_server()
     client.request_server_list()

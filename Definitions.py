@@ -3,16 +3,12 @@ from abc import ABC, abstractmethod
 from enum import *
 import struct
 
-<<<<<<< Updated upstream
-=======
 
-class Headers(Enum):
+class HeadersFormat(Enum):
     MESSAGE_FORMAT = "<16sHHI"
     CLIENT_FORMAT = "<16sHHI"
-    AUTH_FORMAT = "<HHI"
+    AUTH_RESP_HEADER = "<BHL"
 
-
->>>>>>> Stashed changes
 # Constants
 class Color(Enum):
     RESET = '\033[0m'
@@ -31,6 +27,7 @@ def colored_text(text, color):
 # print(colored_text("This is red text", Color.RED))
 
 # Values
+SERVERS_FILE = "srv.info"
 VERSION = 24
 PORT_INFO_FILE_PATH = "port.info"
 HOST = "127.0.0.1"  # localhost
@@ -111,8 +108,8 @@ class Request(ABC):
     @classmethod
     def unpack_response(cls, response_payload):
         # Implement the unpacking logic for the response payload
-        header_size = struct.calcsize(Headers.CLIENT_FORMAT.value)
-        header = struct.unpack(Headers.CLIENT_FORMAT.value, response_payload[:header_size])
+        header_size = struct.calcsize(cls.header.format)
+        header = struct.unpack(cls.header.format, response_payload[:header_size])
 
         server_response = {
             'Version': header[1],

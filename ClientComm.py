@@ -20,12 +20,22 @@ class SpecificRequest(Request):
                 self.my_request_instance = self
                 super().__init__(auth_server_address, auth_server_port)
                 
-                
-        def register_client(self, username, password):
-            payload = username.encode() + password.encode()
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1024,len(self.payload), payload)
-            response = self.my_request_instance.send_request(request_data)
-            return response
+        @staticmethod
+        def register_client(username,password):
+            # problem here
+            encoded_username = username.encode()
+            encoded_password = password.encode()
+
+            # Pad encoded username and password to a length of 255 bytes with spaces
+            padded_username = encoded_username + b'\x00' * (255 - len(encoded_username))
+            padded_password = encoded_password + b'\x00' * (255 - len(encoded_password))
+
+            print(encoded_username)
+            print(encoded_password)
+            payload = padded_username + padded_password
+            request_data = struct.Struct(HEADER_SIZE).pack(str(0).encode(), VERSION, 1024, len(payload))
+            request_data = request_data+payload
+            return request_data
             
         def register_server(self,username,AES):
             payload=username.encode()+AES.encode()
@@ -34,20 +44,13 @@ class SpecificRequest(Request):
             return response
             
 
-<<<<<<< Updated upstream
+
         def request_message_server(self):
             request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1026,0,0)
             response = self.my_request_instance.send_request(request_data)
             return response
-            
-=======
-    def register_client(self, username, password):
-        payload = username.encode() + password.encode()
-        header = struct.Struct(Header_size).pack( b'\0', VERSION, ClientRequestToAuth.REGISTER_CLIENT, len(payload))
-        request_data = header + payload
-        response = self.send_request(request_data)
-        return response
->>>>>>> Stashed changes
+
+
 
         def request_aes_key_from_auth(self,client_ID,server_ID,nonce):
             payload = client_ID.encode() + server_ID.encode() + nonce.encode() 
