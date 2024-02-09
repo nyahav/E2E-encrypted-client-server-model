@@ -2,12 +2,14 @@ import secrets
 import struct
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-from Crypto.Util.Padding import pad,unpad
+from Crypto.Util.Padding import pad, unpad
 from Definitions import Request
+from Definitions import Header
 
-#move both function into class so can be access from all entnties
+# move both function into class so can be access from all entities
 class EncryptionHelper:
-# Function for encrypting a message using AES-CBC
+    # Function for encrypting a message using AES-CBC
+    @staticmethod
     def encrypt_message(message, key, iv):
         padded_message = pad(message.encode(), AES.block_size)
         cipher = AES.new(key, AES.MODE_CBC, iv)
@@ -24,7 +26,7 @@ class EncryptionHelper:
 
     # Function for sending a request to the server
     @staticmethod
-    def send_request(sock, request):
+    def send_response(sock, request):
         sock.send(request.encode())
 
     # Function for receiving a response from the server
@@ -37,12 +39,13 @@ class EncryptionHelper:
     @staticmethod
     def handle_server_error():
         print("server responded with an error")
+
     @staticmethod
     def get_random_bytes(length):
         if length not in [16, 32]:
             raise ValueError("Invalid length. Please specify 16 or 32 bytes.")
         return secrets.token_bytes(length)
-    
+
     @staticmethod
     def get_auth_port_number():
         try:
@@ -52,10 +55,11 @@ class EncryptionHelper:
         except (FileNotFoundError, ValueError):
             # Return 1236 if file doesn't exist or if the content is not an integer
             return 1236
+
     @staticmethod
     def parse_request(request_data):
         parts = request_data.strip().split(":")
-        
+
         # Make sure there are at least two parts before trying to return them
         if len(parts) >= 2:
             request_type = int(parts[0])
@@ -64,14 +68,18 @@ class EncryptionHelper:
         else:
             # Handle the case where there are not enough parts
             raise ValueError("Invalid request_data format")
-    
+
+
+
+
     @staticmethod
-    def serialize_response(self, response):
-            # It's responsible for converting a response object, which contains both a response code and an optional payload,
-            # into a string format that can be transmitted over the network to the client.
-            return f"{response[0]}:{response[1]}"
-    
-   
+    def unpack(header_format, response_payload):
+        # Implement the unpacking logic for the response payload
+        header_size = struct.calcsize(header_format)
+        header = struct.unpack(header_format, response_payload[:header_size])
+        payload_size = header[Header.PAYLOAD_SIZE.value]
+        payload = response_payload[header_size:header_size + payload_size]
+        return header, payload
     """
     usage example on how to encrypt_message and decrypt_message
     helper = EncryptionHelper()

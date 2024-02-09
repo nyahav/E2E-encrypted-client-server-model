@@ -1,55 +1,90 @@
-from Definitions import Request, VERSION,ClientRequestToAuth, RequestMessage
+from Definitions import Request,VERSION
 import struct
 import socket
 
-HEADER_SIZE = "<16sHHI"  # Format string for struct
+
+HEADER_SIZE="<16sHHI"
 
 class SpecificRequest(Request):
     def __init__(self, auth_server_address, auth_server_port):
         super().__init__()
         self.auth_server_address = auth_server_address
-        self.auth_server_port = auth_server_port
-        self.client_ID = None  # You need to set this to a valid value
+        self.auth_server_port =auth_server_port
 
-    def register_client(self, username, password):
-        payload = username.encode() + password.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.REGISTER_CLIENT, len(payload))
-        request_data = header + payload
-        response = self.send_request(request_data)
-        return response
+    
+    class MyRequest(Request):
+        my_request_instance = None
+        def __init__(self, auth_server_address, auth_server_port):
+            # Initialize the instance only if it's not created yet
+            if not self.my_request_instance:
+                self.my_request_instance = self
+                super().__init__(auth_server_address, auth_server_port)
+                
+        @staticmethod
+        def register_client(username,password):
+            # problem here
+            encoded_username = username.encode()
+            encoded_password = password.encode()
 
-    def request_message_server(self):
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS, 0)
-        request_data = header  # No payload for this request
-        response = self.send_request(request_data)
-        return response
+            # Pad encoded username and password to a length of 255 bytes with spaces
+            padded_username = encoded_username + b'\x00' * (255 - len(encoded_username))
+            padded_password = encoded_password + b'\x00' * (255 - len(encoded_password))
 
-    def request_aes_key_from_auth(self, client_ID, server_ID, nonce):
-        payload = client_ID.encode() + server_ID.encode() + nonce.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, ClientRequestToAuth.GET_SYMETRIC_KEY, len(payload))
-        request_data = header + payload
-        response = self.send_request(request_data)
-        return response
+            print(encoded_username)
+            print(encoded_password)
+            payload = padded_username + padded_password
+            request_data = struct.Struct(HEADER_SIZE).pack(str(0).encode(), VERSION, 1024, len(payload))
+            request_data = request_data+payload
+            return request_data
+            
+        def register_server(self,username,AES):
+            payload=username.encode()+AES.encode()
+            request_data=struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION,1025,len(self.payload),payload)
+            response = self.my_request_instance.send_request(request_data)
+            return response
+            
 
-    def sending_aes_key_to_message_server(self, authenticator, ticket):
-        payload = authenticator.encode() + ticket.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, RequestMessage.SEND_SYMETRIC_KEY, len(payload))
-        request_data = header + payload
-        response = self.send_request(request_data)
-        return response
 
-    def sending_message_to_message_server(self, message_Size, iv, message_content):
-        payload = message_Size.encode() + iv.encode() + message_content.encode()
-        header = struct.pack(HEADER_SIZE, self.client_ID.encode(), VERSION, RequestMessage.SEND_MESSAGE, len(payload))
-        request_data = header + payload
-        response = self.send_request(request_data)
-        return response
+        def request_message_server(self):
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1026,0,0)
+            response = self.my_request_instance.send_request(request_data)
+            return response
 
-    def send_request(self, request_data):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-            client_socket.connect((self.auth_server_address, self.auth_server_port))
-            client_socket.sendall(request_data)
-            response_data = client_socket.recv(1024)
 
-        response = self.unpack_response(response_data)
-        return response
+
+        def request_aes_key_from_auth(self,client_ID,server_ID,nonce):
+            payload = client_ID.encode() + server_ID.encode() + nonce.encode() 
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1027,len(self.payload), payload)
+            response = self.my_request_instance.send_request(request_data)
+            return response
+            
+        
+        def sending_aes_key_to_message_server(self,authenticator,ticket):
+            payload=authenticator.encode()+ticket.encode()
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1028,len(self.payload), payload)
+            response = self.my_request_instance.send_request(request_data)
+            return response
+            
+        
+        def sending_message_to_message_server(self,message_Size,iv,message_content):
+            payload=message_Size.encode()+iv.encode()+message_content.encode() 
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION, 1029,len(self.payload), payload)  
+            response = self.my_request_instance.send_request(request_data)
+            return response
+            
+        def send_request(self, request_data):
+            # Implement the code for sending a request to the server
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                # Connect to the authentication server
+                client_socket.connect((self.auth_server_address, self.auth_server_port))
+
+                # Send the request data
+                client_socket.sendall(request_data)
+
+                # Receive the response data
+                response_data = client_socket.recv(1024)
+
+            # Unpack the response using the unpack_response method from the Request class
+            response = self.unpack_response(response_data)
+
+            return response
