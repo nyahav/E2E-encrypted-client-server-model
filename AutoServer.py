@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import os
 import time
 import uuid
@@ -146,19 +147,38 @@ class AuthenticationServer:
             for server_id, server_info in self.server.items():
                 file.write(f"{server_id}:{server_info['name']}:{server_info['aes_key']}\n")
 
-    def handle_client_connection(self, request):
-        username = request.payload["username"]
-        password = request.payload["password"]
+    def  handle_client_connection(self, payload):
+        payload_format = '255s255s'
+        username, password = struct.unpack(payload_format, payload)
 
-        if username not in self.clients:
-            client_id = self.generate_unique_id()
-            self.clients[username] = {"client_id": client_id, "password": password}
+        # Remove padding from username and password
+        username = username.rstrip(b'\x00').decode('utf-8')
+        password = password.rstrip(b'\x00').decode('utf-8')
+        print("Username:", username)
+        print("Password:", password)
 
-            response = (ResponseAuth.REGISTER_SUCCESS_RESP, {"client_id": client_id})
-        else:
-            response = (ResponseAuth.REGISTER_FAILURE_RESP)
-
+        if self.check_username_exists(username):
+            return (ResponseAuth.REGISTER_FAILURE_RESP)
+        client_id = str(uuid.uuid4())
+        hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        self.save_client_info(username, client_id, hashed_password)
+        response = (ResponseAuth.REGISTER_SUCCESS_RESP, {"client_id": client_id})
         return response
+
+
+    def check_username_exists(self, username):
+        # Check if the username already exists in the clients.info file
+        with open("clients.info", "r") as file:
+            for line in file:
+                if line.strip().split(',')[0] == username:
+                    return True
+        return False
+
+
+    def save_client_info(self, username, client_id, hashed_password):
+        # Save client information to clients.info file
+        with open("clients.info", "a") as file:
+            file.write(f"{username},{client_id},{hashed_password}\n")
 
     def handle_request_get_aes_key(self, request):
 
