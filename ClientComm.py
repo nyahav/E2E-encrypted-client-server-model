@@ -36,55 +36,31 @@ class SpecificRequest(Request):
             request_data = struct.Struct(HEADER_SIZE).pack(str(0).encode(), VERSION, 1024, len(payload))
             request_data = request_data+payload
             return request_data
-            
-        def register_server(self,username,AES):
-            payload=username.encode()+AES.encode()
-            request_data=struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION,1025,len(self.payload),payload)
-            response = self.my_request_instance.send_request(request_data)
-            return response
-            
 
 
-        def request_message_server(self):
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1026,0,0)
-            response = self.my_request_instance.send_request(request_data)
-            return response
+        @staticmethod
+        def request_message_server_list(client_id):
+            request_data = struct.Struct(HEADER_SIZE).pack(client_id, VERSION, 1026,0)
+            return request_data
 
-
-
+        @staticmethod
         def request_aes_key_from_auth(self,client_ID,server_ID,nonce):
             payload = client_ID.encode() + server_ID.encode() + nonce.encode() 
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1027,len(self.payload), payload)
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1027,len(self.payload))
             response = self.my_request_instance.send_request(request_data)
             return response
-            
-        
+
+        @staticmethod
         def sending_aes_key_to_message_server(self,authenticator,ticket):
             payload=authenticator.encode()+ticket.encode()
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1028,len(self.payload), payload)
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1028,len(self.payload))
             response = self.my_request_instance.send_request(request_data)
             return response
-            
-        
+
+        @staticmethod
         def sending_message_to_message_server(self,message_Size,iv,message_content):
             payload=message_Size.encode()+iv.encode()+message_content.encode() 
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION, 1029,len(self.payload), payload)  
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION, 1029,len(self.payload))
             response = self.my_request_instance.send_request(request_data)
             return response
             
-        def send_request(self, request_data):
-            # Implement the code for sending a request to the server
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-                # Connect to the authentication server
-                client_socket.connect((self.auth_server_address, self.auth_server_port))
-
-                # Send the request data
-                client_socket.sendall(request_data)
-
-                # Receive the response data
-                response_data = client_socket.recv(1024)
-
-            # Unpack the response using the unpack_response method from the Request class
-            response = self.unpack_response(response_data)
-
-            return response
