@@ -3,8 +3,8 @@ import struct
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Util.Padding import pad, unpad
-from Definitions import Request
-from Definitions import Header
+from Definitions import Request, HeaderAuth, Header
+
 
 # move both function into class so can be access from all entities
 class EncryptionHelper:
@@ -69,9 +69,6 @@ class EncryptionHelper:
             # Handle the case where there are not enough parts
             raise ValueError("Invalid request_data format")
 
-
-
-
     @staticmethod
     def unpack(header_format, response_payload):
         # Implement the unpacking logic for the response payload
@@ -80,6 +77,16 @@ class EncryptionHelper:
         payload_size = header[Header.PAYLOAD_SIZE.value]
         payload = response_payload[header_size:header_size + payload_size]
         return header, payload
+
+    @staticmethod
+    def unpack_auth(header_format, response_payload):
+        # Implement the unpacking logic for the response payload
+        header_size = struct.calcsize(header_format)
+        header = struct.unpack(header_format, response_payload[:header_size])
+        payload_size = header[HeaderAuth.PAYLOAD_SIZE.value]
+        payload = response_payload[header_size:header_size + payload_size]
+        return header, payload
+
     """
     usage example on how to encrypt_message and decrypt_message
     helper = EncryptionHelper()

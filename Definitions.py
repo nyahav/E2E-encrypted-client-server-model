@@ -40,9 +40,13 @@ class Header(Enum):
     VERSION = 1
     CODE = 2
     PAYLOAD_SIZE = 3
+    #issue here,payloadsize is 2 at authresponse
+class HeaderAuth(Enum):
+    VERSION = 0
+    CODE = 1
+    PAYLOAD_SIZE = 2
 
-
-#  Lengths
+#  Lengthss
 UUID_LEN = 16
 SERVER_ID_LENGTH = 16
 CLIENT_ID_LEN = 16
@@ -79,7 +83,7 @@ class RequestMessage(IntEnum):
 class ResponseAuth(IntEnum):
     REGISTER_SUCCESS_RESP = 1600,
     REGISTER_FAILURE_RESP = 1601,
-    RESPONSE_MESSAGE_SERVERS = 1602,
+    RESPONSE_MESSAGE_SERVERS_LIST = 1602,
     RESPONSE_SYMETRIC_KEY = 1603,
 
 
