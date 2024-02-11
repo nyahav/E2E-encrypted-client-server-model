@@ -188,15 +188,21 @@ class AuthenticationServer:
             file.write(f"{username},{client_id},{hashed_password}:{last_seen}\n")
 
     def handle_request_server_list_(self):
-
-
-        # Process the request and generate the server list
-        server_list = list(self.servers.values())  # Assuming self.servers is a dictionary of servers
         modified_server_list = []
-        for server in server_list:
-            modified_server = server.copy()  # Make a copy to avoid modifying the original list
-            del modified_server['message_AES_key']
+        for server_id, server_info in self.servers.items():
+            # Extract IP and port from ip_port
+            ip = server_info['ip']
+            port = server_info['port']
+
+            # Construct the modified server dictionary
+            modified_server = {
+                'server_name': server_info['server_name'],
+                'ip': ip,
+                'port': port,
+                'server_id': server_id
+            }
             modified_server_list.append(modified_server)
+
         print(modified_server_list)
         """     
         server_list = [
