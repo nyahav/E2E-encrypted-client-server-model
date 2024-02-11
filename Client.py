@@ -1,6 +1,9 @@
+import json
 import secrets
 import socket
 import time
+import re
+
 import ClientComm
 from Definitions import *
 from basicFunctions import *
@@ -15,7 +18,7 @@ class Client:
         self.auth_server_port = auth_server_port
         self.message_server_ip = ""
         self.message_server_port = ""
-        server_list = {}
+        self.server_list = {}
         self.ticket = None
 
         # Create persistent connections
@@ -80,23 +83,42 @@ class Client:
 
         # Iterate over the payload to extract server information
         while index < len(payload):
+            # Unpack the payload header (version, code, payload size)
+            header_format = "<B2sI"
+            header_size = struct.calcsize(header_format)
+            version_byte, code_bytes, payload_size = struct.unpack(header_format, payload[index:index + header_size])
+            code = int.from_bytes(code_bytes, byteorder='little')
+
+            # Move the index to the beginning of the server information
+            index += header_size
+
             # Unpack the server information (server ID and server name)
-            server_info_size = struct.calcsize("<B255s")
+            server_info_size = payload_size - header_size
             server_info_data = payload[index:index + server_info_size]
-            server_id, server_name = struct.unpack("<B255s", server_info_data)
+
+            # Use regular expression to find complete JSON objects
+            server_info_list = re.findall(br'{.*?}', server_info_data)
+
+            for server_info_str in server_info_list:
+                # Load JSON data
+                server_info = json.loads(server_info_str.decode('utf-8'))
+
+                # Extract server ID and name
+                server_id = server_info.get('server_id')
+                server_name = server_info.get('server_name')
+
+                if server_id is not None and server_name is not None:
+                    # Use server_id as a key and create a tuple with server name and IP
+                    server_list.append({
+                        'server_id': server_id,
+                        'server_info': (server_name, f"192.168.1.{server_id}")
+                        # Replace with actual IP logic
+                    })
 
             # Move the index to the next server information
             index += server_info_size
 
-            # Use server_id as a key and create a tuple with server name and IP
-            server_list.append({
-                'server_id': server_id,
-                'server_info': (server_name.decode().rstrip('\x00'), f"192.168.1.{server_id}")
-                # Replace with actual IP logic
-            })
-
         return server_list
-
     def request_server_list(self, auth_sock):
         request_data = r.MyRequest.request_message_server_list(self.client_id)
         auth_sock.send(request_data)
@@ -104,7 +126,7 @@ class Client:
         response = auth_sock.recv(1024)
         print(response)
         server_list = self.parse_server_list(response)
-
+        print(server_list)
         return server_list
 
     def prompt_user_for_server_selection(server_list):
