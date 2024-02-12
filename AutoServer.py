@@ -188,31 +188,30 @@ class AuthenticationServer:
             file.write(f"{username},{client_id},{hashed_password}:{last_seen}\n")
 
     def handle_request_server_list_(self):
+        modified_server_list = []
+        for server_id, server_info in self.servers.items():
+            # Extract IP and port from ip_port
+            ip = server_info['ip']
+            port = server_info['port']
 
+            # Construct the modified server dictionary
+            modified_server = {
+                'server_name': server_info['server_name'],
+                'ip': ip,
+                'port': port,
+                'server_id': server_id
+            }
+            modified_server_list.append(modified_server)
 
-        # Process the request and generate the server list
-        server_list = list(self.servers.values())  # Assuming self.servers is a dictionary of servers
-        """
-        try:
-            if not server_list:
-                print("Server list is empty.")
-            else:
-                for server in server_list:
-                    print("Server ID:", server["server_id"])
-                    print("Server Name:", server["server_name"])
-                    print("Server IP:", server["ip"])
-                    print("Server Port:", server["port"])
-                    print("Message AES Key:", server["message_AES_key"])
-                    print()  # Empty line for better readability
-        except TypeError:
-            print("Error: Server list is not iterable.")
-       
+        print(modified_server_list)
+        """     
         server_list = [
           {'ip': '192.168.1.1', 'port': 8000, 'server_id': '123', 'server_name': 'Server1', 'message_AES_key': 'AES_KEY1'},
           {'ip': '192.168.1.2', 'port': 9000, 'server_id': '456', 'server_name': 'Server2', 'message_AES_key': 'AES_KEY2'},
           ]
         """
-        response_data = AuthCommHelper.response_message_servers_list(server_list)
+
+        response_data = AuthCommHelper.response_message_servers_list(modified_server_list)
         print(response_data)
         return response_data
 
@@ -250,15 +249,6 @@ class AuthenticationServer:
 
         return client_id, encrypted_key + encrypted_key_iv, encrypted_ticket
 
-
-
-    def create_server_list_response(self, server_list):
-        response_data = b""
-        for server in server_list:
-            # Assuming server objects have attributes server_ID and server_name
-            server_response = self.response_message_servers(server.server_ID, server.server_name)
-            response_data += server_response
-        return response_data
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

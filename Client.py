@@ -1,6 +1,9 @@
+import json
 import secrets
 import socket
 import time
+import re
+
 import ClientComm
 from Definitions import *
 from basicFunctions import *
@@ -15,7 +18,7 @@ class Client:
         self.auth_server_port = auth_server_port
         self.message_server_ip = ""
         self.message_server_port = ""
-        server_list = {}
+        self.server_list = []
         self.ticket = None
 
         # Create persistent connections
@@ -78,22 +81,51 @@ class Client:
         server_list = []
         index = 0
 
+        # Unpack the payload header (version, code, payload size)
+        header_format = "<B2sI"
+        header_size = struct.calcsize(header_format)
+        version_byte, code_bytes, payload_size = struct.unpack(header_format, payload[index:index + header_size])
+        code = int.from_bytes(code_bytes, byteorder='little')
+        if code != ResponseAuth.RESPONSE_MESSAGE_SERVERS_LIST:
+            raise ValueError("Invalid response code: {}".format(code))
+
+        # Move the index to the beginning of the server information
+        index += header_size
+        counter = 1  # Initialize the counter
+
         # Iterate over the payload to extract server information
         while index < len(payload):
-            # Unpack the server information (server ID and server name)
-            server_info_size = struct.calcsize("<B255s")
-            server_info_data = payload[index:index + server_info_size]
-            server_id, server_name = struct.unpack("<B255s", server_info_data)
+            # Find the position of the next '}{'
+            end_pos = payload.find(b'}{', index)
+            if end_pos == -1:
+                # This is the last server info object
+                server_info_data = payload[index:]
+            else:
+                # Extract the server info data
+                server_info_data = payload[index:end_pos + 1]
+
+            # Use regular expression to find complete JSON objects
+            server_info_list = re.findall(br'{.*?}', server_info_data)
+
+            for server_info_str in server_info_list:
+                # Load JSON data
+                server_info = json.loads(server_info_str.decode('utf-8'))
+
+                # Extract server ID and name
+                server_id = server_info.get('server_id')
+                server_name = server_info.get('server_name')
+
+                if server_id is not None and server_name is not None:
+                    # Use server_id as a key and create a tuple with server name and IP
+                    server_list.append({
+                        'serial_number': counter,
+                        'server_name': server_name,
+                        'server_id': server_id,
+                    })
+                    counter += 1
 
             # Move the index to the next server information
-            index += server_info_size
-
-            # Use server_id as a key and create a tuple with server name and IP
-            server_list.append({
-                'server_id': server_id,
-                'server_info': (server_name.decode().rstrip('\x00'), f"192.168.1.{server_id}")
-                # Replace with actual IP logic
-            })
+            index += len(server_info_data)
 
         return server_list
 
@@ -104,23 +136,27 @@ class Client:
         response = auth_sock.recv(1024)
         print(response)
         server_list = self.parse_server_list(response)
-
+        print(server_list)
         return server_list
 
-    def prompt_user_for_server_selection(server_list):
+    def prompt_user_for_server_selection(self):
         """Prompts the user to select a server from the provided list and validates their choice."""
 
         while True:
-            print("Available servers:")
-            for i, server in enumerate(server_list):
+            print(Color.GREEN.value + "Available servers:" + Color.RESET.value)
+            for i, server in enumerate(self.server_list):
                 print(f"{i + 1}. {server['server_name']} ({server['server_id']})")
 
             try:
-                user_selection = int(input("Enter the number of the server you want to connect to: ")) - 1
-                selected_server_id = server_list[user_selection]['server_id']
-                return selected_server_id
-            except (IndexError, ValueError):
-                print("Invalid selection. Please enter a valid server number.")
+                user_selection = int(input(Color.GREEN.value + "Enter the number of the server you want to connect to: " + Color.RESET.value))
+
+                if 0 <= user_selection < len(self.server_list):
+                    selected_server_id = self.server_list[user_selection]['server_id']
+                    return selected_server_id
+                else:
+                    print("Invalid selection. Please enter a valid server number.")
+            except ValueError:
+                print("Invalid input. Please enter a valid integer.")
 
     def request_aes_key(self, client_ID, server_ID):
         # Requests an AES key from the authentication server for a specific server.
@@ -183,8 +219,10 @@ class Client:
         auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         auth_sock.connect((client.auth_server_ip, client.auth_server_port))
         client.register_with_auth_server(auth_sock)
-        server_list = client.request_server_list(auth_sock)
-        selected_server_id = client.prompt_user_for_server_selection(server_list)
+        client.server_list = client.request_server_list(auth_sock)
+
+        print(client.server_list)
+        selected_server_id = client.prompt_user_for_server_selection()
         client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id'])
         auth_sock.close()
 
