@@ -30,7 +30,7 @@ class MessageServer:
         with open(f"{self.server_name}.info", "w") as file:
             file.write(f"{self.ip}:{self.port}\n")
             print(type(self.server_id))
-            file.write(f"{self.server_id.hex}\n")
+            file.write(f"{self.server_id}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
     def handle_client_request(self, client_socket):

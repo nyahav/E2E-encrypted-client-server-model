@@ -44,11 +44,11 @@ class SpecificRequest(Request):
             return request_data
 
         @staticmethod
-        def request_aes_key_from_auth(self,client_ID,server_ID,nonce):
-            payload = client_ID.encode() + server_ID.encode() + nonce.encode() 
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1027,len(self.payload))
-            response = self.my_request_instance.send_request(request_data)
-            return response
+        def request_aes_key_from_auth(self,client_id,server_id,nonce):
+            payload =  server_id.encode() + nonce
+            request_data = struct.Struct(HEADER_SIZE).pack(client_id, VERSION, 1027, len(payload))
+            request_data = request_data+payload
+            return request_data
 
         @staticmethod
         def sending_aes_key_to_message_server(self,authenticator,ticket):

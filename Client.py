@@ -11,6 +11,7 @@ from basicFunctions import *
 
 class Client:
     def __init__(self, auth_server_ip, auth_server_port):
+        self.aes_key = None
         self.client_id = None
         self.encryption_helper = EncryptionHelper()
         self.clientName, self.client_id = self.read_client_info()
@@ -148,7 +149,7 @@ class Client:
                 print(f"{i + 1}. {server['server_name']} ({server['server_id']})")
 
             try:
-                user_selection = int(input(Color.GREEN.value + "Enter the number of the server you want to connect to: " + Color.RESET.value))
+                user_selection = int(input(Color.GREEN.value + "Enter the number of the server you want to connect to: " + Color.RESET.value))-1
 
                 if 0 <= user_selection < len(self.server_list):
                     selected_server_id = self.server_list[user_selection]['server_id']
@@ -158,22 +159,16 @@ class Client:
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 
-    def request_aes_key(self, client_ID, server_ID):
+    def request_aes_key(self,auth_sock, client_ID, server_ID):
         # Requests an AES key from the authentication server for a specific server.
-
         nonce_length = 8
         nonce = secrets.token_bytes(nonce_length)
-        request_data = r.MyRequest.request_aes_key(self, client_ID, server_ID, nonce)
-
-        # Send the request to the authentication server
-
-        self.auth_sock.send(request_data)
-        response = self.auth_sock.recv(1024)
+        request_data = r.MyRequest.request_aes_key_from_auth(self, client_ID, server_ID, nonce)
+        auth_sock.send(request_data)
+        response = auth_sock.recv(1024)
 
         # Process the response, assuming it contains the AES key
         self.aes_key = response.payload  # Assuming payload holds the AES key
-
-        # Store or use the AES key for communication with the specified server
 
     def sending_aes_key_to_message_server(self, client_ID, server_ID, ticket):
         """Sends an authenticator and ticket to the messaging server."""
@@ -223,7 +218,7 @@ class Client:
 
         print(client.server_list)
         selected_server_id = client.prompt_user_for_server_selection()
-        client.request_aes_key(client.client_id, server_list[selected_server_id]['server_id'])
+        client.request_aes_key(auth_sock, client.client_id, selected_server_id)
         auth_sock.close()
 
         # MessageServer Part

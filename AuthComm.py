@@ -19,7 +19,7 @@ class AuthCommHelper(Request):
 
     @staticmethod
     def register_server_success(server_id):
-        payload = server_id.bytes
+        payload = server_id.encode()
         resp_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP.value, len(payload))
         resp_data += payload
         return resp_data

@@ -13,6 +13,7 @@ from MessageServer import MessageServer
 from basicFunctions import EncryptionHelper
 from AuthComm import AuthCommHelper
 
+
 # client list need to be global
 class AuthenticationServer:
     def __init__(self):
@@ -55,7 +56,7 @@ class AuthenticationServer:
 
     def add_message_server(self, server_name, message_aes_key, port):
 
-        server_id = uuid.uuid4()  # binary form of server_id
+        server_id = uuid.uuid4().hex  # binary form of server_id
         # Python script to open the file named 'ExampleServer.txt' and read the first line
 
         # Open the file in read mode
@@ -112,6 +113,7 @@ class AuthenticationServer:
 
                 header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
                 request_type = header[Header.CODE.value]
+                request_client_id = header[Header.CLIENT_ID.value]
 
                 # Use a switch case or if-elif statements to handle different request types
                 if request_type == ClientRequestToAuth.REGISTER_CLIENT:
@@ -121,10 +123,9 @@ class AuthenticationServer:
                     response_data = self.handle_request_server_list_()
 
                 elif request_type == ClientRequestToAuth.GET_SYMETRIC_KEY:
-                    client_id, encrypted_key, encrypted_ticket = self.handle_request_get_aes_key(payload)
-                    response_data = (ResponseAuth.RESPONSE_SYMETRIC_KEY,
-                                     {"client_id": client_id, "encrypted_key": encrypted_key,
-                                      "encrypted_ticket": encrypted_ticket})
+                    response_data = self.handle_request_get_aes_key(payload,request_client_id)
+
+
                 elif request_type == MessageServerToAuth.REGISTER_MESSAGE_SERVER:
                     message_server_payload_format = '<255s32sH'
                     # Unpack the data
@@ -166,10 +167,10 @@ class AuthenticationServer:
 
         if self.check_username_exists(username):
             return (ResponseAuth.REGISTER_FAILURE_RESP)
-        client_id = str(uuid.uuid4())
+        client_id = uuid.uuid4().hex
         hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
         last_seen = datetime.now().strftime('%Y-%m-%d %H:%M:%S') if last_seen is None else last_seen
-        self.save_client_info(username, client_id, hashed_password,last_seen)
+        self.save_client_info(username, client_id, hashed_password, last_seen)
         response = AuthCommHelper.register_client_success(client_id)
         print(response)
         return response
@@ -182,7 +183,7 @@ class AuthenticationServer:
                     return True
         return False
 
-    def save_client_info(self, username, client_id, hashed_password,last_seen):
+    def save_client_info(self, username, client_id, hashed_password, last_seen):
         # Save client information to clients.info file
         with open("clients.info", "a") as file:
             file.write(f"{username},{client_id},{hashed_password}:{last_seen}\n")
@@ -215,20 +216,28 @@ class AuthenticationServer:
         print(response_data)
         return response_data
 
-    def handle_request_get_aes_key(self, request):
+    def handle_request_get_aes_key(self, request,client_id):
+        print("request before encode"+request)
+        request = request.decode()
+        print("request after encode" + request)
 
-        client_id = request.payload["client_id"]
-        server_id = request.payload["server_id"]
-        nonce = request.payload["nonce"]
 
-        # Retrieve the client's symmetric key (assuming you have a mechanism to store and retrieve it)
-        client_key = self.get_client_key(client_id)
+        # Extract server_id (16 bytes)
+        server_id_bytes = request[16:32]
+        server_id = server_id_bytes.hex()  # Convert bytes to hexadecimal string
+
+        # Extract nonce (8 bytes)
+        nonce_bytes = request[32:40]
+        nonce = nonce_bytes.hex()
+
+        # Retrieve the client's symmetric key (his hashed password)
+        client_key = self.retrieve_hashed_password(client_id)
 
         # Generate the AES key for the client and server
-        aes_key = get_random_bytes(32)
+        aes_key = os.urandom(32)
 
         # Create the encrypted key for the server
-        encrypted_key_iv = get_random_bytes(16)
+        encrypted_key_iv = os.urandom(16)
         encrypted_key = encrypt_message(aes_key + nonce, client_key, encrypted_key_iv)
 
         # Create the ticket for the client
@@ -249,6 +258,24 @@ class AuthenticationServer:
 
         return client_id, encrypted_key + encrypted_key_iv, encrypted_ticket
 
+    def retrieve_hashed_password(client_id):
+        try:
+            # Open the clients.info file in read mode
+            with open("clients.info", "r") as file:
+                # Iterate through each line in the file
+                for line in file:
+                    # Split the line into components using comma as delimiter
+                    client_info = line.strip().split(",")
+                    # Check if the first element (client ID) matches the provided client ID
+                    if client_info[1] == client_id:
+                        # If found, return the hashed password (second element)
+                        return client_info[2]
+        except FileNotFoundError:
+            # Handle the case where the file is not found
+            print("Error: File 'clients.info' not found.")
+        # Handle the case where client ID is not found in the file
+        print("Client ID not found in the file.")
+        return None
 
     def start(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
