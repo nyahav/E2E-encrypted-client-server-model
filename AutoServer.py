@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import struct
 import time
 import uuid
 import socket
@@ -56,19 +57,20 @@ class AuthenticationServer:
 
     def add_message_server(self, server_name, message_aes_key, port):
 
-        server_id = uuid.uuid4().hex  # binary form of server_id
+        server_id = uuid.uuid4()
+        server_id_hex_str = server_id.hex
         # Python script to open the file named 'ExampleServer.txt' and read the first line
 
         # Open the file in read mode
 
-        self.servers[server_id] = {
+        self.servers[server_id_hex_str] = {
             'ip': '127.0.0.1',
             'port': port,
             'server_name': server_name,
             'message_AES_key': message_aes_key
         }
         self.write_server_list(Definitions.SERVERS_FILE)
-        return server_id
+        return server_id.bytes
 
     def load_clients(self):
         # Load client information from file (if exists)
@@ -81,7 +83,7 @@ class AuthenticationServer:
                     for line in lines:
                         line = line.strip()
                         if line:  # Check if the line is not empty
-                            client_data = line.split(":")
+                            client_data = line.split(": ")
                             if len(client_data) == 4:
                                 client_id, name, password_hash, last_seen = client_data
                                 self.clients[client_id] = {"name": name, "password_hash": password_hash,
@@ -113,7 +115,7 @@ class AuthenticationServer:
 
                 header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
                 request_type = header[Header.CODE.value]
-                request_client_id = header[Header.CLIENT_ID.value]
+                request_client_id_bin = header[Header.CLIENT_ID.value]
 
                 # Use a switch case or if-elif statements to handle different request types
                 if request_type == ClientRequestToAuth.REGISTER_CLIENT:
@@ -123,7 +125,7 @@ class AuthenticationServer:
                     response_data = self.handle_request_server_list_()
 
                 elif request_type == ClientRequestToAuth.GET_SYMETRIC_KEY:
-                    response_data = self.handle_request_get_aes_key(payload,request_client_id)
+                    response_data = self.handle_request_get_aes_key(payload, request_client_id_bin)
 
 
                 elif request_type == MessageServerToAuth.REGISTER_MESSAGE_SERVER:
@@ -167,7 +169,7 @@ class AuthenticationServer:
 
         if self.check_username_exists(username):
             return (ResponseAuth.REGISTER_FAILURE_RESP)
-        client_id = uuid.uuid4().hex
+        client_id = uuid.uuid4()
         hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
         last_seen = datetime.now().strftime('%Y-%m-%d %H:%M:%S') if last_seen is None else last_seen
         self.save_client_info(username, client_id, hashed_password, last_seen)
@@ -179,14 +181,14 @@ class AuthenticationServer:
         # Check if the username already exists in the clients.info file
         with open("clients.info", "r") as file:
             for line in file:
-                if line.strip().split(',')[0] == username:
+                if line.strip().split(': ')[0] == username:
                     return True
         return False
 
     def save_client_info(self, username, client_id, hashed_password, last_seen):
         # Save client information to clients.info file
         with open("clients.info", "a") as file:
-            file.write(f"{username},{client_id},{hashed_password}:{last_seen}\n")
+            file.write(f"{username}: {client_id.hex}: {hashed_password}: {last_seen}\n")
 
     def handle_request_server_list_(self):
         modified_server_list = []
@@ -216,19 +218,12 @@ class AuthenticationServer:
         print(response_data)
         return response_data
 
-    def handle_request_get_aes_key(self, request,client_id):
-        print("request before encode"+request)
-        request = request.decode()
-        print("request after encode" + request)
+    def handle_request_get_aes_key(self, request, client_id):
 
-
-        # Extract server_id (16 bytes)
-        server_id_bytes = request[16:32]
-        server_id = server_id_bytes.hex()  # Convert bytes to hexadecimal string
-
-        # Extract nonce (8 bytes)
-        nonce_bytes = request[32:40]
-        nonce = nonce_bytes.hex()
+        server_id_bin, nonce_bin = struct.unpack('<16s8s', request)
+        server_id = server_id_bin.hex()
+        # Convert bytes to hexadecimal string
+        nonce = nonce_bin.hex()
 
         # Retrieve the client's symmetric key (his hashed password)
         client_key = self.retrieve_hashed_password(client_id)
@@ -258,14 +253,16 @@ class AuthenticationServer:
 
         return client_id, encrypted_key + encrypted_key_iv, encrypted_ticket
 
-    def retrieve_hashed_password(client_id):
+    @staticmethod
+    def retrieve_hashed_password(client_id_bin):
+        client_id = client_id_bin.hex()
         try:
             # Open the clients.info file in read mode
             with open("clients.info", "r") as file:
                 # Iterate through each line in the file
                 for line in file:
                     # Split the line into components using comma as delimiter
-                    client_info = line.strip().split(",")
+                    client_info = line.strip().split(": ")
                     # Check if the first element (client ID) matches the provided client ID
                     if client_info[1] == client_id:
                         # If found, return the hashed password (second element)

@@ -4,15 +4,16 @@ from Definitions import *
 from basicFunctions import *
 from MessageComm import SpecificRequest
 import secrets
-
+import uuid
 
 class MessageServer:
-    def __init__(self, server_name, port=None, symmetric_key=None, server_id=None):
+    def __init__(self, server_name, port=None, symmetric_key=None, server_id_bin=None):
         self.ip = '127.0.0.1'
         self.port = port
         self.server_name = server_name
         self.symmetric_key = symmetric_key
-        self.server_id = server_id
+        self.server_id = uuid.UUID(bytes=server_id_bin)  # ascii form
+        print("Server id: ", self.server_id)
         self.encryption_helper = EncryptionHelper()
         if port is None:
             self.read_server_info()  # Read info from msg(#).info
@@ -22,15 +23,14 @@ class MessageServer:
             lines = f.readlines()
             if len(lines) >= 4:
                 (self.IP, self.port) = lines[0].strip().split(":")
-                self.server_id = bytes.fromhex(lines[1].strip())
+                self.server_id = uuid.UUID(lines[1].strip())
                 self.symmetric_key = base64.b64decode(lines[2].strip())
                 self.port = int(self.port)
 
     def write_server_info(self):
         with open(f"{self.server_name}.info", "w") as file:
             file.write(f"{self.ip}:{self.port}\n")
-            print(type(self.server_id))
-            file.write(f"{self.server_id}\n")
+            file.write(f"{self.server_id.hex}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
     def handle_client_request(self, client_socket):
@@ -111,9 +111,8 @@ def handle_server_registration(server_name, server_port, r):
     sign_to_auth_sock.send(register_data)
     resp_from_auth = sign_to_auth_sock.recv(1024)
     print(f"received from Auth: {resp_from_auth}")
-    version, response_type, server_id = SpecificRequest.unpack_register_message_success(resp_from_auth)
-    print(f"server_id is: {server_id}")
-    new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id)
+    version, response_type, server_id_bin = SpecificRequest.unpack_register_message_success(resp_from_auth)
+    new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id_bin)
     return new_message_server
 
 

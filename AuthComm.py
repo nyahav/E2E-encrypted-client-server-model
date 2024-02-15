@@ -12,14 +12,14 @@ class AuthCommHelper(Request):
 
     @staticmethod
     def register_client_success(client_id):
-        payload = client_id.encode()
+        payload = client_id.bytes
         resp_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP.value, len(payload))
         resp_data += payload
         return resp_data
 
     @staticmethod
     def register_server_success(server_id):
-        payload = server_id.encode()
+        payload = server_id
         resp_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP.value, len(payload))
         resp_data += payload
         return resp_data
