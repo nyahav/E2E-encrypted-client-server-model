@@ -219,39 +219,51 @@ class AuthenticationServer:
         return response_data
 
     def handle_request_get_aes_key(self, request, client_id):
+        try:
+            server_id_bin, nonce_bin = struct.unpack('<16s8s', request)
+            server_id = server_id_bin.hex()
+            nonce = nonce_bin.hex()
 
-        server_id_bin, nonce_bin = struct.unpack('<16s8s', request)
-        server_id = server_id_bin.hex()
-        # Convert bytes to hexadecimal string
-        nonce = nonce_bin.hex()
+            # Retrieve the client's symmetric key (hashed password)
+            client_key = self.retrieve_hashed_password(client_id)
+            client_key_bytes = bytes.fromhex(client_key)
+            if client_key is None:
+                raise ValueError("Client key not found.")
 
-        # Retrieve the client's symmetric key (his hashed password)
-        client_key = self.retrieve_hashed_password(client_id)
+            # Retrieve the messageServer's symmetric key
+            messageserver_key = self.retrieve_aes_key_of_messageserver(server_id_bin)
+            messageserver_key_bytes = base64.b64decode(messageserver_key)
+            if messageserver_key is None:
+                raise ValueError("Message server key not found.")
 
-        # Generate the AES key for the client and server
-        aes_key = os.urandom(32)
+            # Create the encrypted key for the server
+            client_iv = os.urandom(16)
+            encrypted_key = EncryptionHelper.encrypt_message(messageserver_key + nonce,
+                                                             client_key_bytes,
+                                                             client_iv)
+            encrypted_key += client_iv
+            # Create the ticket for the client
+            ticket_iv = os.urandom(16)
+            creation_time = int(time.time())
+            expiration_time = creation_time + 60
+            encrypted_message = EncryptionHelper.encrypt_message(messageserver_key + str(expiration_time),
+                                                                 messageserver_key_bytes, ticket_iv)
+            ticket_data = struct.pack("<B16s16sQ16s32s",
+                                      VERSION,
+                                      client_id,
+                                      server_id_bin,
+                                      creation_time,
+                                      ticket_iv,
+                                      b'')  # Placeholder for the encrypted message
 
-        # Create the encrypted key for the server
-        encrypted_key_iv = os.urandom(16)
-        encrypted_key = encrypt_message(aes_key + nonce, client_key, encrypted_key_iv)
+            # Add the encrypted message to the packed struct
+            ticket_data += encrypted_message
 
-        # Create the ticket for the client
-        ticket_iv = get_random_bytes(16)
-        creation_time = int(time.time())
-        expiration_time = creation_time + self.ticket_expiration_time
-        ticket_data = struct.pack("<BI16s16sQ16s32sQ",
-                                  VERSION,  # Version (1 byte)
-                                  client_id.encode(),  # Client ID (16 bytes)
-                                  server_id.encode(),  # Server ID (16 bytes)
-                                  creation_time,  # Creation time (8 bytes)
-                                  ticket_iv,  # Ticket IV (16 bytes)
-                                  encrypt_message(aes_key, self.messaging_server_key, ticket_iv),
-                                  # Encrypted AES key (32 bytes)
-                                  expiration_time)  # Expiration time (8 bytes)
-
-        encrypted_ticket = encrypt_message(ticket_data, client_key, get_random_bytes(16))
-
-        return client_id, encrypted_key + encrypted_key_iv, encrypted_ticket
+            response = ticket_data + encrypted_key
+            return response
+        except Exception as e:
+            print(f"Error handling request: {e}")
+            return None
 
     @staticmethod
     def retrieve_hashed_password(client_id_bin):
@@ -272,6 +284,28 @@ class AuthenticationServer:
             print("Error: File 'clients.info' not found.")
         # Handle the case where client ID is not found in the file
         print("Client ID not found in the file.")
+        return None
+
+    @staticmethod
+    def retrieve_aes_key_of_messageserver(server_id_bin):
+        server_id = server_id_bin.hex()
+        try:
+            # Open the srv.info file in read mode
+            with open("srv.info", "r") as file:
+                # Iterate through each line in the file
+                for line in file:
+                    print("Line:", line)
+                    # Split the line into components using comma as delimiter
+                    server_info = line.strip().split(",")
+                    # Check if the second element (server ID) matches the provided server ID
+                    if server_info[1] == server_id:
+                        # If found, return the AES key (fourth element)
+                        return server_info[3]
+        except FileNotFoundError:
+            # Handle the case where the file is not found
+            print("Error: File 'srv.info' not found.")
+        # Handle the case where server ID is not found in the file
+        print("Server ID not found in the file.")
         return None
 
     def start(self):

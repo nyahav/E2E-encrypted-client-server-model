@@ -1,3 +1,4 @@
+import hashlib
 import json
 import secrets
 import socket
@@ -13,6 +14,7 @@ class Client:
     def __init__(self, auth_server_ip, auth_server_port):
         self.aes_key = None
         self.client_id = None
+        self.hashPassword = None
         self.encryption_helper = EncryptionHelper()
         self.clientName, self.client_id = self.read_client_info()
         self.auth_server_ip = auth_server_ip
@@ -44,7 +46,7 @@ class Client:
         while True:
             username = input("Enter username: ")
             password = input("Enter password: ")
-
+            self.hashPassword=hashlib.sha256(password)
             # Add null terminator if missing
             if username[-1] != '\0':
                 username += '\0'
@@ -166,6 +168,19 @@ class Client:
         request_data = r.MyRequest.request_aes_key_from_auth(self, client_ID, server_ID, nonce)
         auth_sock.send(request_data)
         response = auth_sock.recv(1024)
+        ticket_data_length = struct.calcsize("<B16s16sQ16s32s")  # Calculate the length of ticket_data
+        ticket_data = response[:ticket_data_length]  # Extract ticket_data
+        encrypted_key = response[ticket_data_length:]
+        client_iv_size = 16  # Assuming client_iv is 16 bytes long
+        # Extract the encrypted key and client_iv
+        encrypted_key_size = len(response) - client_iv_size
+        encrypted_key = response[:encrypted_key_size]
+        client_iv = response[encrypted_key_size:]
+        encrypted_key_after_decryption = self.encryption_helper.decrypt_message(encrypted_key,self.hashPassword,client_iv)
+        messageserver_key = encrypted_key_after_decryption[:- nonce_length]
+        nonce_sent_back =encrypted_key_after_decryption[- nonce_length:]
+        if nonce_sent_back!= nonce
+            print("error")
 
         # Process the response, assuming it contains the AES key
         self.aes_key = response.payload  # Assuming payload holds the AES key
