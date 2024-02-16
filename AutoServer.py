@@ -236,13 +236,15 @@ class AuthenticationServer:
             if messageserver_key is None:
                 raise ValueError("Message server key not found.")
 
-            # Create the encrypted key for the server
+            # Create the encrypted key for the client
             client_iv = os.urandom(16)
+            #encrypted by client password hash
             encrypted_key = EncryptionHelper.encrypt_message(messageserver_key + nonce,
                                                              client_key_bytes,
                                                              client_iv)
             encrypted_key += client_iv
-            # Create the ticket for the client
+
+            # Create the ticket for the message server
             ticket_iv = os.urandom(16)
             creation_time = int(time.time())
             expiration_time = creation_time + 60

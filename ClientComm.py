@@ -51,16 +51,15 @@ class SpecificRequest(Request):
             return request_data
 
         @staticmethod
-        def sending_aes_key_to_message_server(self,authenticator,ticket):
-            payload=authenticator.encode()+ticket.encode()
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1028,len(self.payload))
-            response = self.my_request_instance.send_request(request_data)
-            return response
+        def sending_aes_key_to_message_server(self,iv,authenticator,ticket):
+            payload = iv+authenticator+ticket
+            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1028,len(payload))
+            return request_data
 
         @staticmethod
         def sending_message_to_message_server(self,message_Size,iv,message_content):
-            payload=message_Size.encode()+iv.encode()+message_content.encode() 
+            payload = message_Size.encode()+iv.encode()+message_content
             request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION, 1029,len(self.payload))
-            response = self.my_request_instance.send_request(request_data)
-            return response
+            request_data += payload
+            return request_data
             

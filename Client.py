@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import secrets
 import socket
 import time
@@ -183,47 +184,46 @@ class Client:
             print("error")
 
         # Process the response, assuming it contains the AES key
-        self.aes_key = response.payload  # Assuming payload holds the AES key
+        self.aes_key = messageserver_key  # Assuming payload holds the AES key
+        return ticket_data
 
-    def sending_aes_key_to_message_server(self, client_ID, server_ID, ticket):
-        """Sends an authenticator and ticket to the messaging server."""
+    def sending_aes_key_to_message_server(self,auth_sock, client_id, server_id, ticket):
+        # Sends an authenticator and ticket to the messaging server.
 
         time_stamp = time.time()
-
+        iv=os.urandom(16)
         # Pack the authenticator data using struct
         authenticator_data = struct.pack("<BI16s16sQ",
                                          VERSION,  # Version (1 byte)
-                                         client_ID.encode(),  # Client ID (16 bytes)
-                                         server_ID.encode(),  # Server ID (16 bytes)
+                                         client_id.encode(),  # Client ID (16 bytes)
+                                         server_id.encode(),  # Server ID (16 bytes)
                                          int(time_stamp))  # Creation time (8 bytes)
-        authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.messaging_server_key,
-                                                               get_random_bytes(16))
+
+        authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.aes_key,iv)
 
         # Create the request data
-        request_data = authenticator + ticket
+        request_data =r.MyRequest.sending_aes_key_to_message_server( iv, authenticator, ticket)
+        auth_sock.send(request_data)
+        response = auth_sock.recv(1024)
+        #need to parse response to get back code
+        if response != ResponseMessage.APPROVE_SYMETRIC_KEY
+            print("error")
 
-        return request_data
-
-    def messaging_the_message_server(self, aes_key):
+    def messaging_the_message_server(self,auth_sock):
 
         message = input("Enter your message: ")
-
         # Generate a random 16-byte IV (initialization vector)
-        iv = secrets.token_bytes(16)
-
+        iv = os.urandom(16)
         # Encrypt the message using AES-CBC mode
-        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), aes_key, iv)
-
+        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.aes_key, iv)
         # Prepend the 4-byte message size (assuming little-endian)
-        request_data = len(encrypted_message).to_bytes(4, "little") + iv + encrypted_message
-
+        request_data =r.MyRequest.sending_message_to_message_server(len(encrypted_message).to_bytes(4, "little"),iv,encrypted_message)
         # Send the request data to the message server
-        self.auth_sock.send(request_data)
-
-        encrypted_message = self.encryption_helper.encrypt_message(message, aes_key,
-                                                                   iv)  # Assuming `encrypt_message` is defined
-        request_data = self.encryption_helper.request_aes_key(self, len(encrypted_message), iv, encrypted_message)
-
+        auth_sock.send(request_data)
+        response = auth_sock.recv(1024)
+        # need to parse response to get back code
+        if response != ResponseMessage.APPROVE_MESSAGE_RECIVED
+            print("error")
     def main(client, r):
         # AuthServer Part
         auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -233,14 +233,14 @@ class Client:
 
         print(client.server_list)
         selected_server_id = client.prompt_user_for_server_selection()
-        client.request_aes_key(auth_sock, client.client_id, selected_server_id)
+        ticket = client.request_aes_key(auth_sock, client.client_id, selected_server_id)
         auth_sock.close()
 
         # MessageServer Part
         message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         message_sock.connect((client.message_server_ip, client.message_server_port))
-        client.sending_aes_key_to_message_server(client.client_id, server_list[selected_server_id]['server_id'])
-        client.messaging_the_message_server(client.aes_key)
+        client.sending_aes_key_to_message_server(message_sock,client.client_id, selected_server_id,ticket)
+        client.messaging_the_message_server(message_sock)
         message_sock.close()
 
 
