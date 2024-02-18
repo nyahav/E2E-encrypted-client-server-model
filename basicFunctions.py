@@ -19,10 +19,17 @@ class EncryptionHelper:
     # Function for decrypting a message encrypted with AES-CBC
     @staticmethod
     def decrypt_message(encrypted_message, key, iv):
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-        decrypted_message = cipher.decrypt(encrypted_message)
-        unpadded_message = unpad(decrypted_message, AES.block_size)
-        return unpadded_message.decode()
+        try:
+            key_bytes = bytes.fromhex(key)
+
+            cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
+            decrypted_message = cipher.decrypt(encrypted_message)
+            unpadded_message = unpad(decrypted_message, AES.block_size)
+            return unpadded_message.decode()
+        except ValueError as e:
+            # Handle decryption errors (e.g., incorrect key)
+            print("Decryption error:", e)
+            return None  # Or raise an exception if needed
 
     # Function for sending a request to the server
     @staticmethod

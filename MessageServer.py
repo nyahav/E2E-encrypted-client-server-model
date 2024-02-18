@@ -4,15 +4,16 @@ from Definitions import *
 from basicFunctions import *
 from MessageComm import SpecificRequest
 import secrets
-
+import uuid
 
 class MessageServer:
-    def __init__(self, server_name, port=None, symmetric_key=None, server_id=None):
+    def __init__(self, server_name, port=None, symmetric_key=None, server_id_bin=None):
         self.ip = '127.0.0.1'
         self.port = port
         self.server_name = server_name
         self.symmetric_key = symmetric_key
-        self.server_id = server_id
+        self.server_id = uuid.UUID(bytes=server_id_bin)  # ascii form
+        print("Server id: ", self.server_id)
         self.encryption_helper = EncryptionHelper()
         if port is None:
             self.read_server_info()  # Read info from msg(#).info
@@ -22,14 +23,13 @@ class MessageServer:
             lines = f.readlines()
             if len(lines) >= 4:
                 (self.IP, self.port) = lines[0].strip().split(":")
-                self.server_id = bytes.fromhex(lines[1].strip())
+                self.server_id = uuid.UUID(lines[1].strip())
                 self.symmetric_key = base64.b64decode(lines[2].strip())
                 self.port = int(self.port)
 
     def write_server_info(self):
         with open(f"{self.server_name}.info", "w") as file:
             file.write(f"{self.ip}:{self.port}\n")
-            print(type(self.server_id))
             file.write(f"{self.server_id.hex}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
@@ -42,9 +42,9 @@ class MessageServer:
 
             # Handle different request types
             if request.type == RequestMessage.SEND_SYMETRIC_KEY:
-                self.receive_aes_key_from_client(client_socket)
+                response = self.receive_aes_key_from_client(request)
             elif request.type == RequestMessage.SEND_MESSAGE:
-                self.receive_message_from_client(client_socket)
+                response = self.receive_message_from_client(request)
             else:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
@@ -56,42 +56,66 @@ class MessageServer:
             client_socket.close()
 
     # Function to get an AES key from the message server
-    def receive_aes_key_from_client(self, sock, authenticator, ticket):
+    def receive_aes_key_from_client(self, request):
         try:
-            aes_key = self.decrypt_ticket_and_aes_key(ticket, authenticator)
-            # Receive the encrypted message from the client
-            iv, encrypted_message = self.encryption_helper.receive_response(sock).split(' ')
-            iv = bytes.fromhex(iv)
-            encrypted_message = bytes.fromhex(encrypted_message)
+            iv, authenticator, ticket = struct.unpack('<16s8s', request)
+            #authernticator decrption
+            try:
+                versionA, client_idA, server_idA, creationtimeA = self.encryption_helper.decrypt_message(authenticator,
+                                                                                                     self.symmetric_key,
+                                                                                                     iv)
+            except ValueError as e:
+                print("Decryption error:", e)
+                return ResponseMessage.GENERAL_ERROR
+            # ticket decrption
+            try:
+                unpacked_data = struct.unpack("<B16s16sQ16s32s", ticket)
 
-            # Decrypt the message using the decrypted AES key
-            decrypted_message = self.encryption_helper.decrypt_message(encrypted_message, aes_key, iv)
+                # Extract individual fields
+                versionT = unpacked_data[0]
+                client_idT = unpacked_data[1]
+                server_id_binT = unpacked_data[2]
+                creation_timeT = unpacked_data[3]
+                ticket_iv = unpacked_data[4]
+                encrpyted_data = unpacked_data[5]
+                decrypted_data = self.encryption_helper.decrypt_message(encrpyted_data,self.symmetric_key,iv)
+
+                # Calculate the size of expiration_time
+                expiration_time_size = 8  # Assuming 8 bytes for expiration_time
+
+                # Calculate the size of ticket_aes_key
+                ticket_aes_key_size = len(decrypted_data) - expiration_time_size
+
+                # Extract ticket_aes_key and expiration_time from decrypted_data
+                ticket_aes_key = decrypted_data[:ticket_aes_key_size]
+                expiration_time_bytes = decrypted_data[ticket_aes_key_size:]
+                # Convert expiration_time_bytes to integer
+                expiration_time = struct.unpack('<Q', expiration_time_bytes)[0]
+            except ValueError as e:
+                    print("Decryption error:", e)
+                    return ResponseMessage.GENERAL_ERROR
+
+
+
             # Send back a success response (code 1604)
-            send_request(sock, ResponseMessage.APPROVE_SYMETRIC_KEY)  # Assuming you have a function to send responses
-        except:
-            print("Error")
+            return ResponseMessage.APPROVE_SYMETRIC_KEY
+        except Exception as ex:
+            print("Exception:", ex)
+            return ResponseMessage.GENERAL_ERROR
 
-    def decrypt_ticket_and_aes_key(ticket, authenticator):
-        return 1
 
-    def receive_message_from_client(self, sock):
+    def receive_message_from_client(self, request):
         try:
-            # Receive the size of the incoming message
-            message_size = self.encryption_helper.receive_response(sock)[:4]
-            message_size = int.from_bytes(message_size, "little")
-
-            # Receive the initialization vector for decryption
-            message_iv = self.encryption_helper.receive_response(sock)[:16]
-
-            # Receive the actual message content
-            message_content = self.encryption_helper.receive_response(sock)
-
-            # Decrypt the message content using the server's symmetric key
+            # Define the format string to unpack the data
+            format_string = '<I16s'
+            message_size, message_iv = struct.unpack(format_string, request[:20])
+            message_content =request[20:]
             decrypted_message = self.encryption_helper.decrypt_message(message_content, self.symmetric_key, message_iv)
-
+            print(decrypted_message)
+            return ResponseMessage.APPROVE_MESSAGE_RECIVED
         except Exception as e:
             print(f"Error receiving message from client: {e}")
-
+            return ResponseMessage.GENERAL_ERROR
         # Process the decrypted message further as needed
 
     # Define receive_response and decrypt_message methods as needed
@@ -111,9 +135,8 @@ def handle_server_registration(server_name, server_port, r):
     sign_to_auth_sock.send(register_data)
     resp_from_auth = sign_to_auth_sock.recv(1024)
     print(f"received from Auth: {resp_from_auth}")
-    version, response_type, server_id = SpecificRequest.unpack_register_message_success(resp_from_auth)
-    print(f"server_id is: {server_id}")
-    new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id)
+    version, response_type, server_id_bin = SpecificRequest.unpack_register_message_success(resp_from_auth)
+    new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id_bin)
     return new_message_server
 
 

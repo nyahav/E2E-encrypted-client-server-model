@@ -42,5 +42,4 @@ class SpecificRequest(Request):
         header_size = struct.calcsize(auth_resp_form)
         version, response_type, payload_length = struct.unpack(auth_resp_form, request_data[:header_size])
         message_id_bytes = request_data[header_size:header_size + payload_length]
-        message_id = uuid.UUID(bytes=message_id_bytes)
-        return version, response_type, message_id
+        return version, response_type, message_id_bytes
