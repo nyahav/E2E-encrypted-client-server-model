@@ -20,7 +20,9 @@ class EncryptionHelper:
     @staticmethod
     def decrypt_message(encrypted_message, key, iv):
         try:
-            cipher = AES.new(key, AES.MODE_CBC, iv)
+            key_bytes = bytes.fromhex(key)
+
+            cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
             decrypted_message = cipher.decrypt(encrypted_message)
             unpadded_message = unpad(decrypted_message, AES.block_size)
             return unpadded_message.decode()

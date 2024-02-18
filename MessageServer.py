@@ -93,7 +93,7 @@ class MessageServer:
                 expiration_time = struct.unpack('<Q', expiration_time_bytes)[0]
             except ValueError as e:
                     print("Decryption error:", e)
-                return ResponseMessage.GENERAL_ERROR
+                    return ResponseMessage.GENERAL_ERROR
 
 
 

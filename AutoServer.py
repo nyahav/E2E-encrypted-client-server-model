@@ -250,7 +250,12 @@ class AuthenticationServer:
             expiration_time = creation_time + 60
             encrypted_message = EncryptionHelper.encrypt_message(messageserver_key + str(expiration_time),
                                                                  messageserver_key_bytes, ticket_iv)
-            ticket_data = struct.pack("<B16s16sQ16s32s",
+            # Calculate lengths of dynamic fields
+            ticket_length = 16 + 16 + 8 + 16 + 32  # Size of fixed-length fields
+            ticket_data_length = struct.calcsize(f"<B16s16sQ16s{ticket_length}s")  # Calculate the length of ticket_data
+
+            # Pack the dynamic data
+            ticket_data = struct.pack(f"<B16s16sQ16s{ticket_length}s",
                                       VERSION,
                                       client_id,
                                       server_id_bin,
@@ -258,11 +263,15 @@ class AuthenticationServer:
                                       ticket_iv,
                                       b'')  # Placeholder for the encrypted message
 
-            # Add the encrypted message to the packed struct
-            ticket_data += encrypted_message
 
-            response = ticket_data + encrypted_key
+            ticket_data += encrypted_message  # Here, ensure ticket_data is bytes
+
+            # Now pack the dynamic data
+            ticket_data = ticket_data  # Convert to bytes if not already
+
+            response = struct.pack("<II", len(ticket_data), len(encrypted_key)) + ticket_data + encrypted_key
             return response
+
         except Exception as e:
             print(f"Error handling request: {e}")
             return None
@@ -296,7 +305,7 @@ class AuthenticationServer:
             with open("srv.info", "r") as file:
                 # Iterate through each line in the file
                 for line in file:
-                    print("Line:", line)
+
                     # Split the line into components using comma as delimiter
                     server_info = line.strip().split(",")
                     # Check if the second element (server ID) matches the provided server ID
