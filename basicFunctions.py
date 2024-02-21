@@ -1,3 +1,4 @@
+import binascii
 import secrets
 import struct
 from Crypto.Cipher import AES
@@ -11,7 +12,16 @@ class EncryptionHelper:
     # Function for encrypting a message using AES-CBC
     @staticmethod
     def encrypt_message(message, key, iv):
-        padded_message = pad(message.encode(), AES.block_size)
+        if isinstance(message, bytes):
+            padded_message = pad(message, AES.block_size)
+        elif isinstance(message, str):
+            padded_message = pad(message.encode(), AES.block_size)
+        else:
+            raise TypeError("Message must be a bytes-like object or a string")
+
+        # Check if the key is a hexadecimal string, if so, convert it to bytes
+        if isinstance(key, str):
+            key = binascii.unhexlify(key)
         cipher = AES.new(key, AES.MODE_CBC, iv)
         encrypted_message = cipher.encrypt(padded_message)
         return encrypted_message
@@ -20,7 +30,13 @@ class EncryptionHelper:
     @staticmethod
     def decrypt_message(encrypted_message, key, iv):
         try:
-            key_bytes = bytes.fromhex(key)
+            # Check if the key is already in bytes
+            if isinstance(key, str):
+                key_bytes = bytes.fromhex(key)
+            elif isinstance(key, bytes):
+                key_bytes = key
+            else:
+                raise TypeError("Key must be a hex string or bytes")
 
             cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
             decrypted_message = cipher.decrypt(encrypted_message)

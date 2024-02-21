@@ -69,7 +69,6 @@ class Client:
             break
 
         request_data = r.MyRequest.register_client(username, password)
-        print(request_data)
         auth_sock.send(request_data)
         response = auth_sock.recv(1024)
         header, payload = self.encryption_helper.unpack_auth(HeadersFormat.AUTH_RESP_HEADER.value, response)
@@ -79,7 +78,6 @@ class Client:
 
         # Save the client ID
         self.client_id = payload
-        print(self.client_id)
         print(Color.GREEN.value + "Registration successful." + Color.RESET.value)
 
     def parse_server_list(self, payload):
@@ -141,11 +139,29 @@ class Client:
     def request_server_list(self, auth_sock):
         request_data = r.MyRequest.request_message_server_list(self.client_id)
         auth_sock.send(request_data)
-        print(request_data)
-        response = auth_sock.recv(1024)
-        print(response)
-        server_list = self.parse_server_list(response)
-        print(server_list)
+
+        # Initialize an empty buffer to store the response
+        buffer = b''
+        # Define an initial buffer size
+        buffer_size = 1024
+        # Define the maximum buffer size (1 MB)
+        max_buffer_size = 1024 * 1024  # 1 MB
+        # Receive the initial chunk of the response
+        chunk = auth_sock.recv(buffer_size)
+        buffer += chunk
+
+        # Check if the received chunk is smaller than the buffer size
+        while len(chunk) == buffer_size:
+            # Double the buffer size for the next receive operation
+            buffer_size *= 2
+            if buffer_size > max_buffer_size:
+                raise RuntimeError("Response exceeds maximum buffer size (1 MB)")
+            # Receive the next chunk of the response
+            chunk = auth_sock.recv(buffer_size)
+            buffer += chunk
+
+        # Once the entire response is received, parse the server list
+        server_list = self.parse_server_list(buffer)
         return server_list
 
     def prompt_user_for_server_selection(self):
@@ -177,8 +193,8 @@ class Client:
         nonce = secrets.token_bytes(nonce_length)
         request_data = r.MyRequest.request_aes_key_from_auth(self, client_id, server_id, nonce)
         auth_sock.send(request_data)
+        print(request_data)
         response = auth_sock.recv(1024)
-        # Unpack the lengths of ticket_data and encrypted_key
         ticket_data_length, encrypted_key_length = struct.unpack("<II", response[:8])
 
         # Extract ticket_data and encrypted_key
@@ -203,24 +219,27 @@ class Client:
 
         return ticket_data
 
-    def sending_aes_key_to_message_server(self, auth_sock, client_id, server_id, ticket):
+    def sending_aes_key_to_message_server(self, message_sock, client_id, server_id, ticket):
         # Sends an authenticator and ticket to the messaging server.
 
         time_stamp = time.time()
         iv = os.urandom(16)
         # Pack the authenticator data using struct
-        authenticator_data = struct.pack("<BI16s16sQ",
+        authenticator_data = struct.pack("<B16s16sQ",
                                          VERSION,  # Version (1 byte)
-                                         client_id.encode(),  # Client ID (16 bytes)
+                                         client_id,  # Client ID (16 bytes)
                                          server_id.encode(),  # Server ID (16 bytes)
                                          int(time_stamp))  # Creation time (8 bytes)
 
         authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.aes_key, iv)
-
-        # Create the request data
-        request_data = r.MyRequest.sending_aes_key_to_message_server(iv, authenticator, ticket)
-        auth_sock.send(request_data)
-        response = auth_sock.recv(1024)
+        # Calculate lengths of authenticator and ticket
+        authenticator_length = len(authenticator)
+        ticket_length = len(ticket)
+        # Pack lengths and data into request
+        request_data = struct.pack("<II", authenticator_length, ticket_length) + iv + authenticator + ticket
+        request_data_with_header = r.MyRequest.sending_aes_key_to_message_server(self.client_id,request_data)
+        message_sock.send(request_data_with_header)
+        response = message_sock.recv(1024)
         # need to parse response to get back code
         if response != ResponseMessage.APPROVE_SYMETRIC_KEY:
             print("error")
@@ -233,7 +252,9 @@ class Client:
         # Encrypt the message using AES-CBC mode
         encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.aes_key, iv)
         # Prepend the 4-byte message size (assuming little-endian)
-        request_data = r.MyRequest.sending_message_to_message_server(len(encrypted_message).to_bytes(4, "little"), iv,
+        request_data = r.MyRequest.sending_message_to_message_server(self.client_id,
+                                                                     len(encrypted_message).to_bytes(4, "little"),
+                                                                     iv,
                                                                      encrypted_message)
         # Send the request data to the message server
         auth_sock.send(request_data)
@@ -248,8 +269,6 @@ class Client:
         auth_sock.connect((client.auth_server_ip, client.auth_server_port))
         client.register_with_auth_server(auth_sock)
         client.server_list = client.request_server_list(auth_sock)
-
-        print(client.server_list)
         selected_server_id = client.prompt_user_for_server_selection()
         ticket = client.request_aes_key(auth_sock, client.client_id, selected_server_id)
         auth_sock.close()

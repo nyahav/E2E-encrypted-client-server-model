@@ -30,8 +30,6 @@ class SpecificRequest(Request):
             padded_username = encoded_username + b'\x00' * (255 - len(encoded_username))
             padded_password = encoded_password + b'\x00' * (255 - len(encoded_password))
 
-            print(encoded_username)
-            print(encoded_password)
             payload = padded_username + padded_password
             request_data = struct.Struct(HEADER_SIZE).pack(str(0).encode(), VERSION, 1024, len(payload))
             request_data = request_data+payload
@@ -51,15 +49,15 @@ class SpecificRequest(Request):
             return request_data
 
         @staticmethod
-        def sending_aes_key_to_message_server(self,iv,authenticator,ticket):
-            payload = iv+authenticator+ticket
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID, VERSION, 1028,len(payload))
+        def sending_aes_key_to_message_server(client_id, payload):
+            request_data = struct.Struct(HEADER_SIZE).pack(client_id, VERSION, 1028, len(payload))
+            request_data += payload
             return request_data
 
         @staticmethod
-        def sending_message_to_message_server(self,message_Size,iv,message_content):
-            payload = message_Size.encode()+iv.encode()+message_content
-            request_data = struct.Struct(HEADER_SIZE).pack(self.client_ID,VERSION, 1029,len(self.payload))
+        def sending_message_to_message_server(client_id,message_size,iv,message_content):
+            payload = message_size.encode()+iv.encode()+message_content
+            request_data = struct.Struct(HEADER_SIZE).pack(client_id,VERSION, 1029,len(payload))
             request_data += payload
             return request_data
             
