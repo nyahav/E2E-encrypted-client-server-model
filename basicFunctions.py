@@ -41,7 +41,7 @@ class EncryptionHelper:
             cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
             decrypted_message = cipher.decrypt(encrypted_message)
             unpadded_message = unpad(decrypted_message, AES.block_size)
-            return unpadded_message.decode()
+            return unpadded_message
         except ValueError as e:
             # Handle decryption errors (e.g., incorrect key)
             print("Decryption error:", e)

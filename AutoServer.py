@@ -2,6 +2,7 @@ import base64
 import binascii
 import hashlib
 import os
+import secrets
 import struct
 import time
 import uuid
@@ -119,7 +120,7 @@ class AuthenticationServer:
                 header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
                 request_type = header[Header.CODE.value]
                 request_client_id_bin = header[Header.CLIENT_ID.value]
-                print("request_type"+str(request_type))
+                print("request_type" + str(request_type))
                 # Use a switch case or if-elif statements to handle different request types
                 if request_type == ClientRequestToAuth.REGISTER_CLIENT:
                     response_data = self.handle_client_connection(payload)
@@ -225,15 +226,16 @@ class AuthenticationServer:
                 raise ValueError("Client key not found.")
 
             # Retrieve the messageServer's symmetric key
-            messageserver_key = self.retrieve_aes_key_of_messageserver(server_id_bin)
-            messageserver_key_bytes = bytes.fromhex(messageserver_key)
-            if messageserver_key is None:
+            message_server_key = self.retrieve_aes_key_of_messageserver(server_id_bin)
+            message_server_key_bytes = bytes.fromhex(message_server_key)
+            if message_server_key is None:
                 raise ValueError("Message server key not found.")
-
-            # Create the encrypted key for the client
+            # create a shared session key for the client and the message server
+            client_message_session_key = secrets.token_bytes(32)
+            # Create the iv for the session for the client and message server
             client_iv = os.urandom(16)
-            #encrypted by client password hash
-            encrypted_key = EncryptionHelper.encrypt_message(messageserver_key + nonce,
+            # encrypted by client password hash
+            encrypted_key = EncryptionHelper.encrypt_message(client_message_session_key + nonce_bin,
                                                              client_key_bytes,
                                                              client_iv)
             encrypted_key += client_iv
@@ -242,9 +244,11 @@ class AuthenticationServer:
             ticket_iv = os.urandom(16)
             creation_time = int(time.time())
             expiration_time = creation_time + 60
-            encrypted_message = EncryptionHelper.encrypt_message(messageserver_key + str(expiration_time),
-                                                                 messageserver_key_bytes, ticket_iv)
+            encrypted_message = EncryptionHelper.encrypt_message(client_message_session_key +
+                                                                 expiration_time.to_bytes(8, byteorder='little'),
+                                                                 message_server_key_bytes, ticket_iv)
             # Calculate lengths of dynamic fields
+
             ticket_length = 16 + 16 + 8 + 16 + 32  # Size of fixed-length fields
             ticket_data_length = struct.calcsize(f"<B16s16sQ16s{ticket_length}s")  # Calculate the length of ticket_data
 
@@ -256,7 +260,6 @@ class AuthenticationServer:
                                       creation_time,
                                       ticket_iv,
                                       b'')  # Placeholder for the encrypted message
-
 
             ticket_data += encrypted_message  # Here, ensure ticket_data is bytes
 

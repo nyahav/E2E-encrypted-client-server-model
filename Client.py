@@ -208,12 +208,11 @@ class Client:
         # Decrypt the encrypted key
         encrypted_key_after_decryption = self.encryption_helper.decrypt_message(encrypted_key, self.hashPassword,
                                                                                 client_iv)
-        nonce_length = 16
+
         # Split the decrypted key into messageserver_key and nonce
         messageserver_key = encrypted_key_after_decryption[:-nonce_length]
         nonce_sent_back = encrypted_key_after_decryption[-nonce_length:]
-        nonce_sent_back_binary = bytes.fromhex(nonce_sent_back)
-        if nonce_sent_back_binary != nonce:
+        if nonce_sent_back != nonce:
             print("Error: Nonce mismatch")
         self.aes_key = messageserver_key  # Assuming payload holds the AES key
 
