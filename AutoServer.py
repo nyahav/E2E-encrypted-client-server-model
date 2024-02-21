@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import os
 import struct
@@ -109,14 +110,16 @@ class AuthenticationServer:
 
             while True:  # Keep the connection open until the client disconnects
                 # Receive the request from the client
+
                 request_data = client_socket.recv(1024)
+
                 if not request_data:
                     break  # If no data is received, break the loop and close the connection
 
                 header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
                 request_type = header[Header.CODE.value]
                 request_client_id_bin = header[Header.CLIENT_ID.value]
-
+                print("request_type"+str(request_type))
                 # Use a switch case or if-elif statements to handle different request types
                 if request_type == ClientRequestToAuth.REGISTER_CLIENT:
                     response_data = self.handle_client_connection(payload)
@@ -135,7 +138,7 @@ class AuthenticationServer:
 
                     # Decode the server name to a string if necessary (assuming UTF-8 encoding, adjust as needed)
                     server_name = server_name.decode('utf-8').rstrip('\x00').strip()  # Removing potential null padding
-                    aes_key = base64.b64encode(aes_key).decode('utf-8')
+                    aes_key = binascii.hexlify(aes_key).decode('utf-8')
 
                     new_server_id = self.add_message_server(server_name, aes_key, port)
                     response_data = AuthCommHelper.register_server_success(new_server_id)
@@ -174,7 +177,6 @@ class AuthenticationServer:
         last_seen = datetime.now().strftime('%Y-%m-%d %H:%M:%S') if last_seen is None else last_seen
         self.save_client_info(username, client_id, hashed_password, last_seen)
         response = AuthCommHelper.register_client_success(client_id)
-        print(response)
         return response
 
     def check_username_exists(self, username):
@@ -205,15 +207,7 @@ class AuthenticationServer:
                 'server_id': server_id
             }
             modified_server_list.append(modified_server)
-
         print(modified_server_list)
-        """     
-        server_list = [
-          {'ip': '192.168.1.1', 'port': 8000, 'server_id': '123', 'server_name': 'Server1', 'message_AES_key': 'AES_KEY1'},
-          {'ip': '192.168.1.2', 'port': 9000, 'server_id': '456', 'server_name': 'Server2', 'message_AES_key': 'AES_KEY2'},
-          ]
-        """
-
         response_data = AuthCommHelper.response_message_servers_list(modified_server_list)
         print(response_data)
         return response_data
@@ -232,7 +226,7 @@ class AuthenticationServer:
 
             # Retrieve the messageServer's symmetric key
             messageserver_key = self.retrieve_aes_key_of_messageserver(server_id_bin)
-            messageserver_key_bytes = base64.b64decode(messageserver_key)
+            messageserver_key_bytes = bytes.fromhex(messageserver_key)
             if messageserver_key is None:
                 raise ValueError("Message server key not found.")
 
