@@ -195,25 +195,26 @@ class Client:
         auth_sock.send(request_data)
         print(request_data)
         response = auth_sock.recv(1024)
-        ticket_data_length, encrypted_key_length = struct.unpack("<II", response[:8])
+        ticket_data_length, session_key_length = struct.unpack("<II", response[:8])
 
         # Extract ticket_data and encrypted_key
         ticket_data = response[8:8 + ticket_data_length]
-        encrypted_key_and_iv = response[8 + ticket_data_length:]
+        session_key_and_iv = response[8 + ticket_data_length:]
+
         # Extract the encrypted key and client_iv
         client_iv_size = 16  # Assuming client_iv is 16 bytes long
-        encrypted_key_length = len(encrypted_key_and_iv) - client_iv_size
-        encrypted_key = encrypted_key_and_iv[:encrypted_key_length]
-        client_iv = encrypted_key_and_iv[encrypted_key_length:]  # Slice directly from the end
+        session_key_length = len(session_key_and_iv) - client_iv_size
+        session_key = session_key_and_iv[:session_key_length]
+        client_iv = session_key_and_iv[session_key_length:]
         # Decrypt the encrypted key
-        encrypted_key_after_decryption = self.encryption_helper.decrypt_message(encrypted_key, self.hashPassword,
-                                                                                client_iv)
-        nonce_length = 16
+        session_key_after_decryption = self.encryption_helper.decrypt_message(session_key,
+                                                                              self.hashPassword,
+                                                                              client_iv)
+
         # Split the decrypted key into messageserver_key and nonce
-        messageserver_key = encrypted_key_after_decryption[:-nonce_length]
-        nonce_sent_back = encrypted_key_after_decryption[-nonce_length:]
-        nonce_sent_back_binary = bytes.fromhex(nonce_sent_back)
-        if nonce_sent_back_binary != nonce:
+        messageserver_key = session_key_after_decryption[:-nonce_length]
+        nonce_sent_back = session_key_after_decryption[-nonce_length:]
+        if nonce_sent_back != nonce:
             print("Error: Nonce mismatch")
         self.aes_key = messageserver_key  # Assuming payload holds the AES key
 
@@ -230,14 +231,15 @@ class Client:
                                          client_id,  # Client ID (16 bytes)
                                          server_id.encode(),  # Server ID (16 bytes)
                                          int(time_stamp))  # Creation time (8 bytes)
-
+        print("authenticator_data " + str(authenticator_data))
         authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.aes_key, iv)
+        print("authenticator " + str(authenticator))
         # Calculate lengths of authenticator and ticket
         authenticator_length = len(authenticator)
         ticket_length = len(ticket)
         # Pack lengths and data into request
         request_data = struct.pack("<II", authenticator_length, ticket_length) + iv + authenticator + ticket
-        request_data_with_header = r.MyRequest.sending_aes_key_to_message_server(self.client_id,request_data)
+        request_data_with_header = r.MyRequest.sending_aes_key_to_message_server(self.client_id, request_data)
         message_sock.send(request_data_with_header)
         response = message_sock.recv(1024)
         # need to parse response to get back code

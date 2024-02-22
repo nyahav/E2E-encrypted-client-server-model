@@ -42,7 +42,7 @@ class MessageServer:
             header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
             request_type = header[Header.CODE.value]
             request_client_id_bin = header[Header.CLIENT_ID.value]
-            print("request_type" + str(request_type))
+            print("request_type " + str(request_type))
             # Handle different request types
             if request_type == RequestMessage.SEND_SYMETRIC_KEY:
                 response = self.receive_aes_key_from_client(payload)
@@ -70,9 +70,14 @@ class MessageServer:
             ticket = request[authenticator_end:authenticator_end + ticket_length]
 
             try:
-                versionA, client_idA, server_idA, creationtimeA = self.encryption_helper.decrypt_message(authenticator,
-                                                                                                         self.symmetric_key,
-                                                                                                         iv)
+                decrypted_auth = self.encryption_helper.decrypt_message(authenticator,
+                                                                        self.symmetric_key,
+                                                                        iv)
+                decrypted_auth_unpack = struct.unpack("<B16s16sQ", decrypted_auth)
+                versionA = decrypted_auth_unpack[0]
+                client_idA = decrypted_auth_unpack[1]
+                server_idA = decrypted_auth_unpack[2]
+                creationtimeA = decrypted_auth_unpack[3]
             except ValueError as e:
                 print("Decryption error:", e)
                 return ResponseMessage.GENERAL_ERROR
@@ -86,9 +91,11 @@ class MessageServer:
                 server_id_binT = unpacked_data[2]
                 creation_timeT = unpacked_data[3]
                 ticket_iv = unpacked_data[4]
-                encrpyted_data = unpacked_data[5]
-                decrypted_data = self.encryption_helper.decrypt_message(encrpyted_data, self.symmetric_key, iv)
-
+                encrypted_data = unpacked_data[5]
+                decrypted_data = self.encryption_helper.decrypt_message(encrypted_data, self.symmetric_key, ticket_iv)
+                expiration_time_length=8
+                client_message_session_key = encrypted_data[:expiration_time_length]
+                expiration_time_data = encrypted_data[expiration_time_length:]
                 if (versionA != versionT or
                         client_idA != client_idT or
                         server_idA != server_id_binT.decode('utf-8') or
@@ -96,16 +103,6 @@ class MessageServer:
                     print("Mismatch between authenticator and ticket")
                     return ResponseMessage.GENERAL_ERROR
 
-                # Calculate the size of expiration_time
-                expiration_time_size = 8  # Assuming 8 bytes for expiration_time
-
-                # Calculate the size of ticket_aes_key
-                ticket_aes_key_size = len(decrypted_data) - expiration_time_size
-
-                ticket_aes_key = decrypted_data[:ticket_aes_key_size]
-                expiration_time_bytes = decrypted_data[ticket_aes_key_size:]
-                # Convert expiration_time_bytes to integer
-                expiration_time = struct.unpack('<Q', expiration_time_bytes)[0]
             except ValueError as e:
                 print("Decryption error:", e)
                 return ResponseMessage.GENERAL_ERROR
