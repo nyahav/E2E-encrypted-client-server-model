@@ -61,54 +61,66 @@ class MessageServer:
     # Function to get an AES key from the message server
     def receive_aes_key_from_client(self, request):
         try:
-            # Unpack lengths of authenticator and ticket
             auth_length, ticket_length = struct.unpack("<II", request[:8])
-            # Unpack iv, authenticator, and ticket based on lengths
             iv = request[8:24]
             authenticator_end = 24 + auth_length
             authenticator = request[24:authenticator_end]
             ticket = request[authenticator_end:authenticator_end + ticket_length]
 
             try:
-                decrypted_auth = self.encryption_helper.decrypt_message(authenticator,
-                                                                        self.symmetric_key,
-                                                                        iv)
+                # Calculate the total length of the ticket
+                total_ticket_length = ticket_length
+
+                # Lengths of known-size fields
+                known_fields_length = struct.calcsize("<B16s16sQ16s")
+
+                # Calculate the length of the encrypted message
+                encrypted_message_length = total_ticket_length - known_fields_length
+
+                # Extract known-size fields from the ticket
+                versionT, client_idT, server_id_binT, creation_timeT, ticket_iv = struct.unpack("<B16s16sQ16s", ticket[
+                                                                                                                :known_fields_length])
+                # Extract encrypted message
+                encrypted_data = ticket[known_fields_length:]
+                print("messageServer_key " + str(self.symmetric_key))
+                # Decrypt the encrypted message using the ticket IV and symmetric key
+                decrypted_data = self.encryption_helper.decrypt_message(encrypted_data, self.symmetric_key, ticket_iv)
+
+                # Extract expiration time and client message session key from decrypted data
+                expiration_time_length = 8
+                client_message_session_key_length = 32
+
+                # Extract client message session key
+                client_message_session_key = decrypted_data[:client_message_session_key_length]
+
+                # Extract expiration time
+                expiration_time_start_index = client_message_session_key_length  # Start index of expiration time
+                expiration_time = decrypted_data[
+                                  expiration_time_start_index:expiration_time_start_index + expiration_time_length]
+
+                decrypted_auth = self.encryption_helper.decrypt_message(authenticator, client_message_session_key, iv)
                 decrypted_auth_unpack = struct.unpack("<B16s16sQ", decrypted_auth)
                 versionA = decrypted_auth_unpack[0]
                 client_idA = decrypted_auth_unpack[1]
                 server_idA = decrypted_auth_unpack[2]
-                creationtimeA = decrypted_auth_unpack[3]
-            except ValueError as e:
-                print("Decryption error:", e)
-                return ResponseMessage.GENERAL_ERROR
+                creationismA = decrypted_auth_unpack[3]
 
-            try:
-                unpacked_data = struct.unpack("<B16s16sQ16s32s", ticket)
-
-                # Extract individual fields
-                versionT = unpacked_data[0]
-                client_idT = unpacked_data[1]
-                server_id_binT = unpacked_data[2]
-                creation_timeT = unpacked_data[3]
-                ticket_iv = unpacked_data[4]
-                encrypted_data = unpacked_data[5]
-                decrypted_data = self.encryption_helper.decrypt_message(encrypted_data, self.symmetric_key, ticket_iv)
-                expiration_time_length=8
-                client_message_session_key = encrypted_data[:expiration_time_length]
-                expiration_time_data = encrypted_data[expiration_time_length:]
                 if (versionA != versionT or
                         client_idA != client_idT or
-                        server_idA != server_id_binT.decode('utf-8') or
-                        creationtimeA != creation_timeT):
+                        server_idA != server_id_binT):
                     print("Mismatch between authenticator and ticket")
                     return ResponseMessage.GENERAL_ERROR
-
+                    # Check if expiration time is valid
+                if expiration_time <= creation_timeT or expiration_time > creation_timeT + 60:
+                    print("Invalid expiration time")
+                    return ResponseMessage.GENERAL_ERROR
             except ValueError as e:
                 print("Decryption error:", e)
                 return ResponseMessage.GENERAL_ERROR
 
             # Send back a success response (code 1604)
             return ResponseMessage.APPROVE_SYMETRIC_KEY
+
         except Exception as ex:
             print("Exception:", ex)
             return ResponseMessage.GENERAL_ERROR
@@ -135,7 +147,7 @@ def handle_server_registration(server_name, server_port, r):
     auth_port_number = eh.get_auth_port_number()
     auth_ip_address = '127.0.0.1'
     auth_aes_key = secrets.token_bytes(32)
-
+    print("auth_aes_key" + str(auth_aes_key))
     register_data = r.register_server(bytes(16), server_name, auth_aes_key, server_port)
 
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

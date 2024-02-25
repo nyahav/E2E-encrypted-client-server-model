@@ -13,7 +13,7 @@ from basicFunctions import *
 
 class Client:
     def __init__(self, auth_server_ip, auth_server_port):
-        self.aes_key = None
+        self.session_key = None
         self.client_id = None
         self.hashPassword = None
         self.encryption_helper = EncryptionHelper()
@@ -29,6 +29,32 @@ class Client:
         self.auth_sock = " "
         self.message_sock = ""
 
+        # Attempt to load saved password hash
+        self.saved_password_hash = self.load_saved_password_hash()
+        if self.saved_password_hash:
+            self.resign()
+
+    def load_saved_password_hash(self):
+        try:
+            with open("password_hash.txt", "r") as file:
+                return file.read().strip()
+        except FileNotFoundError:
+            return None
+
+    def save_password_hash(self, password_hash):
+        with open("password_hash.txt", "w") as file:
+            file.write(password_hash)
+
+    def resign(self):
+        while True:
+            password = input("Enter your password to resume: ")
+            hashPassword = hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+            if hashPassword == self.saved_password_hash:
+                print("Password matched. Resuming...")
+                return
+            else:
+                print("Incorrect password. Please try again.")
     def read_client_info(self):
         try:
             with open("me.info", "r") as file:
@@ -168,6 +194,7 @@ class Client:
         """Prompts the user to select a server from the provided list and validates their choice."""
 
         while True:
+            print(Color.GREEN.value + "You need to choose one of the following servers:" + Color.RESET.value)
             print(Color.GREEN.value + "Available servers:" + Color.RESET.value)
             for i, server in enumerate(self.server_list):
                 print(f"{i + 1}. {server['server_name']} ({server['server_id']})")
@@ -183,7 +210,7 @@ class Client:
                     self.message_server_port = selected_server['server_port']
                     return selected_server_id
                 else:
-                    print("Invalid selection. Please enter a valid server number.")
+                    print(Color.GREEN.value + "Invalid selection. Please enter a valid server number." + Color.RESET.value)
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 
@@ -210,13 +237,12 @@ class Client:
         session_key_after_decryption = self.encryption_helper.decrypt_message(session_key,
                                                                               self.hashPassword,
                                                                               client_iv)
-
         # Split the decrypted key into messageserver_key and nonce
-        messageserver_key = session_key_after_decryption[:-nonce_length]
+        session_key = session_key_after_decryption[:-nonce_length]
         nonce_sent_back = session_key_after_decryption[-nonce_length:]
         if nonce_sent_back != nonce:
             print("Error: Nonce mismatch")
-        self.aes_key = messageserver_key  # Assuming payload holds the AES key
+        self.session_key = session_key  # Assuming payload holds the AES key
 
         return ticket_data
 
@@ -229,10 +255,10 @@ class Client:
         authenticator_data = struct.pack("<B16s16sQ",
                                          VERSION,  # Version (1 byte)
                                          client_id,  # Client ID (16 bytes)
-                                         server_id.encode(),  # Server ID (16 bytes)
+                                         bytes.fromhex(server_id),  # Server ID (16 bytes)
                                          int(time_stamp))  # Creation time (8 bytes)
         print("authenticator_data " + str(authenticator_data))
-        authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.aes_key, iv)
+        authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.session_key, iv)
         print("authenticator " + str(authenticator))
         # Calculate lengths of authenticator and ticket
         authenticator_length = len(authenticator)
@@ -245,14 +271,15 @@ class Client:
         # need to parse response to get back code
         if response != ResponseMessage.APPROVE_SYMETRIC_KEY:
             print("error")
-
+        else:
+            print("Your registration with the message server has been successfully completed and secured.")
     def messaging_the_message_server(self, auth_sock):
 
         message = input("Enter your message: ")
         # Generate a random 16-byte IV (initialization vector)
         iv = os.urandom(16)
         # Encrypt the message using AES-CBC mode
-        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.aes_key, iv)
+        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.session_key, iv)
         # Prepend the 4-byte message size (assuming little-endian)
         request_data = r.MyRequest.sending_message_to_message_server(self.client_id,
                                                                      len(encrypted_message).to_bytes(4, "little"),

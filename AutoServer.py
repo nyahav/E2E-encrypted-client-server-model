@@ -27,6 +27,7 @@ class AuthenticationServer:
         self.read_server_list(Definitions.SERVERS_FILE)
         self.load_clients()
         self.hashed_password = None
+        self.aes_key = None
 
     def read_server_list(self, file_path):
         try:
@@ -121,7 +122,7 @@ class AuthenticationServer:
                 header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
                 request_type = header[Header.CODE.value]
                 request_client_id_bin = header[Header.CLIENT_ID.value]
-                print("request_type" + str(request_type))
+                print("request_type: " + str(request_type))
                 # Use a switch case or if-elif statements to handle different request types
                 if request_type == ClientRequestToAuth.REGISTER_CLIENT:
                     response_data = self.handle_client_connection(payload)
@@ -173,7 +174,7 @@ class AuthenticationServer:
         print("Password:", password)
 
         if self.check_username_exists(username):
-            return (ResponseAuth.REGISTER_FAILURE_RESP)
+            return ResponseAuth.REGISTER_FAILURE_RESP
         client_id = uuid.uuid4()
         hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
         last_seen = datetime.now().strftime('%Y-%m-%d %H:%M:%S') if last_seen is None else last_seen
@@ -233,45 +234,43 @@ class AuthenticationServer:
             if message_server_key is None:
                 raise ValueError("Message server key not found.")
             # create a shared session key for the client and the message server
-
             client_message_session_key = secrets.token_bytes(32)
-            print(client_message_session_key)
-            # Create the iv for the session for the client and message server
             client_iv = os.urandom(16)
-            # encrypted by client password hash
             encrypted_key = EncryptionHelper.encrypt_message(client_message_session_key + nonce_bin,
                                                              client_hashed_password_key_bytes,
                                                              client_iv)
+            print(" client_message_session_key" + str( client_message_session_key))
             encrypted_key += client_iv
 
             # Create the ticket for the message server
             ticket_iv = os.urandom(16)
             creation_time = int(time.time())
             expiration_time = creation_time + 60
-            encrypted_message = EncryptionHelper.encrypt_message(client_message_session_key +
-                                                                 expiration_time.to_bytes(8, byteorder='little'),
+
+            # Encrypt the message
+            expiration_bytes = expiration_time.to_bytes(8, byteorder='little')
+
+            encrypted_message = EncryptionHelper.encrypt_message(client_message_session_key + expiration_bytes,
                                                                  message_server_key_bytes, ticket_iv)
-            # Calculate lengths of dynamic fields
-
-            ticket_length = 16 + 16 + 8 + 16 + 32  # Size of fixed-length fields
-            ticket_data_length = struct.calcsize(f"<B16s16sQ16s{ticket_length}s")  # Calculate the length of ticket_data
-
+            encrypted_message_length = len(encrypted_message)
+            print("message_server_key_bytes "+str(message_server_key_bytes))
+            print(" expiration_time " + str(expiration_time))
+            print("expiration_bytes " + str(expiration_bytes))
+            print("ticket_iv" + str(ticket_iv))
+            print("encrypted_message " + str(encrypted_message))
             # Pack the dynamic data
-            ticket_data = struct.pack(f"<B16s16sQ16s{ticket_length}s",
+            ticket_data = struct.pack(f"<B16s16sQ16s{encrypted_message_length}s",
                                       VERSION,
                                       client_id,
                                       server_id_bin,
                                       creation_time,
                                       ticket_iv,
-                                      b'')  # Placeholder for the encrypted message
+                                      encrypted_message)
 
-            ticket_data += encrypted_message  # Here, ensure ticket_data is bytes
-
-            # Now pack the dynamic data
-            ticket_data = ticket_data  # Convert to bytes if not already
-
+            print("ticket:", ticket_data)
             response = struct.pack("<II", len(ticket_data), len(encrypted_key)) + ticket_data + encrypted_key
             return response
+
 
         except Exception as e:
             print(f"Error handling request: {e}")
