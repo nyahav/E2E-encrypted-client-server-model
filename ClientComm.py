@@ -56,7 +56,7 @@ class SpecificRequest(Request):
 
         @staticmethod
         def sending_message_to_message_server(client_id,message_size,iv,message_content):
-            payload = message_size.encode()+iv.encode()+message_content
+            payload = message_size+iv+message_content
             request_data = struct.Struct(HEADER_SIZE).pack(client_id,VERSION, 1029,len(payload))
             request_data += payload
             return request_data

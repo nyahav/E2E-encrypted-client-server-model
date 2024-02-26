@@ -1,14 +1,24 @@
+import argparse
 import base64
 import socket
-from Definitions import *
-from basicFunctions import *
-from MessageComm import SpecificRequest
 import secrets
+import subprocess
+import struct
+import time
 import uuid
+from MessageComm import SpecificRequest
+from Definitions import HeadersFormat, Header, RequestMessage, ResponseMessage
+from basicFunctions import EncryptionHelper
 
 
 class MessageServer:
-    def __init__(self, server_name, port=None, symmetric_key=None, server_id_bin=None):
+    def __init__(self, server_name=None, port=None, symmetric_key=None, server_id_bin=None):
+
+        if server_name is None:
+            server_name = f"server_{uuid.uuid4().hex}"  # Generate a unique server name
+        if port is None:
+            port = self.find_available_port()  # Find an available port dynamically
+        self.session_key = None
         self.ip = '127.0.0.1'
         self.port = port
         self.server_name = server_name
@@ -16,14 +26,21 @@ class MessageServer:
         self.server_id = uuid.UUID(bytes=server_id_bin)  # ascii form
         print("Server id: ", self.server_id)
         self.encryption_helper = EncryptionHelper()
-        if port is None:
-            self.read_server_info()  # Read info from msg(#).info
+
+    @staticmethod
+    def find_available_port():
+        """Find an available port."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(('127.0.0.1', 0))  # Bind to any available port
+        port = sock.getsockname()[1]  # Get the port
+        sock.close()
+        return port
 
     def read_server_info(self):
         with open(f"{self.server_name}.info", "r") as f:
             lines = f.readlines()
             if len(lines) >= 4:
-                (self.IP, self.port) = lines[0].strip().split(":")
+                (self.ip, self.port) = lines[0].strip().split(":")  # Update IP and port
                 self.server_id = uuid.UUID(lines[1].strip())
                 self.symmetric_key = base64.b64decode(lines[2].strip())
                 self.port = int(self.port)
@@ -34,115 +51,137 @@ class MessageServer:
             file.write(f"{self.server_id.hex}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
-    def handle_client_request(self, client_socket):
+    def handle_client_request(self, r, client_socket):
         """Handles incoming client requests."""
-        try:
+        while True:
             # Receive the request from the client
             request_data = client_socket.recv(1024)
+            if not request_data:
+                print("Empty request received (client connection)")
+                return
             header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
             request_type = header[Header.CODE.value]
             request_client_id_bin = header[Header.CLIENT_ID.value]
-            print("request_type" + str(request_type))
+            print("request_type " + str(request_type))
             # Handle different request types
             if request_type == RequestMessage.SEND_SYMETRIC_KEY:
-                response = self.receive_aes_key_from_client(payload)
+                response = self.receive_aes_key_from_client(r,header[0], payload)
             elif request_type == RequestMessage.SEND_MESSAGE:
-                response = self.receive_message_from_client(payload)
+                response = self.receive_message_from_client(r, header[0], payload)
             else:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
             client_socket.send(response)
-        except Exception as e:
-            print(f"Error handling client: {e}")
 
-        finally:
-            client_socket.close()
+
 
     # Function to get an AES key from the message server
-    def receive_aes_key_from_client(self, request):
+    def receive_aes_key_from_client(self, r,client_id, request):
         try:
-            # Unpack lengths of authenticator and ticket
             auth_length, ticket_length = struct.unpack("<II", request[:8])
-            # Unpack iv, authenticator, and ticket based on lengths
             iv = request[8:24]
             authenticator_end = 24 + auth_length
             authenticator = request[24:authenticator_end]
             ticket = request[authenticator_end:authenticator_end + ticket_length]
 
             try:
-                versionA, client_idA, server_idA, creationtimeA = self.encryption_helper.decrypt_message(authenticator,
-                                                                                                         self.symmetric_key,
-                                                                                                         iv)
-            except ValueError as e:
-                print("Decryption error:", e)
-                return ResponseMessage.GENERAL_ERROR
+                total_ticket_length = ticket_length
+                # Lengths of known-size fields
+                known_fields_length = struct.calcsize("<B16s16sQ16s")
 
-            try:
-                unpacked_data = struct.unpack("<B16s16sQ16s32s", ticket)
+                # Calculate the length of the encrypted message
+                encrypted_message_length = total_ticket_length - known_fields_length
 
-                # Extract individual fields
-                versionT = unpacked_data[0]
-                client_idT = unpacked_data[1]
-                server_id_binT = unpacked_data[2]
-                creation_timeT = unpacked_data[3]
-                ticket_iv = unpacked_data[4]
-                encrpyted_data = unpacked_data[5]
-                decrypted_data = self.encryption_helper.decrypt_message(encrpyted_data, self.symmetric_key, iv)
+                # Extract known-size fields from the ticket
+                versionT, client_idT, server_id_binT, creation_timeT, ticket_iv = struct.unpack("<B16s16sQ16s", ticket[
+                                                                                                                :known_fields_length])
+                # Extract encrypted message
+                encrypted_data = ticket[known_fields_length:]
+                print("messageServer_key " + str(self.symmetric_key))
+                # Decrypt the encrypted message using the ticket IV and symmetric key
+                decrypted_data = self.encryption_helper.decrypt_message(encrypted_data, self.symmetric_key, ticket_iv)
+
+                # Extract expiration time and client message session key from decrypted data
+                expiration_time_length = 8
+                client_message_session_key_length = 32
+
+                # Extract client message session key
+                client_message_session_key = decrypted_data[:client_message_session_key_length]
+                self.session_key=client_message_session_key
+                # Extract expiration time
+                expiration_time_start_index = client_message_session_key_length  # Start index of expiration time
+                expiration_time = decrypted_data[
+                                  expiration_time_start_index:expiration_time_start_index + expiration_time_length]
+
+                decrypted_auth = self.encryption_helper.decrypt_message(authenticator, client_message_session_key, iv)
+                decrypted_auth_unpack = struct.unpack("<B16s16sQ", decrypted_auth)
+                versionA = decrypted_auth_unpack[0]
+                client_idA = decrypted_auth_unpack[1]
+                server_idA = decrypted_auth_unpack[2]
+                creationismA = decrypted_auth_unpack[3]
 
                 if (versionA != versionT or
                         client_idA != client_idT or
-                        server_idA != server_id_binT.decode('utf-8') or
-                        creationtimeA != creation_timeT):
+                        server_idA != server_id_binT):
                     print("Mismatch between authenticator and ticket")
                     return ResponseMessage.GENERAL_ERROR
-
-                # Calculate the size of expiration_time
-                expiration_time_size = 8  # Assuming 8 bytes for expiration_time
-
-                # Calculate the size of ticket_aes_key
-                ticket_aes_key_size = len(decrypted_data) - expiration_time_size
-
-                ticket_aes_key = decrypted_data[:ticket_aes_key_size]
-                expiration_time_bytes = decrypted_data[ticket_aes_key_size:]
-                # Convert expiration_time_bytes to integer
-                expiration_time = struct.unpack('<Q', expiration_time_bytes)[0]
+                    # Check if expiration time is valid
+                expiration_time_int = int.from_bytes(expiration_time, byteorder='little')
+                if expiration_time_int <= creation_timeT or expiration_time_int > creation_timeT + 60:
+                    print("Invalid expiration time")
+                    return r.general_error(client_idA)
             except ValueError as e:
                 print("Decryption error:", e)
-                return ResponseMessage.GENERAL_ERROR
+                return r.general_error(client_id)
 
             # Send back a success response (code 1604)
-            return ResponseMessage.APPROVE_SYMETRIC_KEY
+            return r.approve_aes_receive(client_idA)
+
         except Exception as ex:
             print("Exception:", ex)
-            return ResponseMessage.GENERAL_ERROR
+            return r.general_error(client_idA)
 
-    def receive_message_from_client(self, request):
+    def receive_message_from_client(self, r,client_id, request):
         try:
             # Define the format string to unpack the data
             format_string = '<I16s'
             message_size, message_iv = struct.unpack(format_string, request[:20])
             message_content = request[20:]
-            decrypted_message = self.encryption_helper.decrypt_message(message_content, self.symmetric_key, message_iv)
-            print(decrypted_message)
-            return ResponseMessage.APPROVE_MESSAGE_RECIVED
+            decrypted_message = self.encryption_helper.decrypt_message(message_content, self.session_key, message_iv)
+            print(decrypted_message.decode())
+            return r.approve_message_receive(client_id)
         except Exception as e:
             print(f"Error receiving message from client: {e}")
-            return ResponseMessage.GENERAL_ERROR
+            return r.general_error(client_id)
         # Process the decrypted message further as needed
 
     # Define receive_response and decrypt_message methods as needed
 
+def handle_server_registration(server_name, server_ip, server_port, r):
+    # Check if the server already exists
+    with open("srvname.info", "r") as f:
+        for line in f:
+            parts = line.strip().split(":")
+            if len(parts) == 3:
+                name, ip_port, _ = parts
+                if ip_port == f"{server_ip}:{server_port}":
+                    server_info_file = f"{name}.info"
+                    with open(server_info_file, "r") as info_file:
+                        lines = info_file.readlines()
+                        symmetric_key = base64.b64decode(lines[2].strip())
+                        server_id_bin = bytes.fromhex(lines[1].strip())
+                    return MessageServer(server_name=name, port=server_port, symmetric_key=symmetric_key,
+                                         server_id_bin=server_id_bin)
 
-def handle_server_registration(server_name, server_port, r):
+    # If the server doesn't exist, register it with the authentication server
     eh = EncryptionHelper()
     auth_port_number = eh.get_auth_port_number()
-    auth_ip_address = '127.0.0.1'
     auth_aes_key = secrets.token_bytes(32)
-
+    print("auth_aes_key" + str(auth_aes_key))
     register_data = r.register_server(bytes(16), server_name, auth_aes_key, server_port)
 
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    auth_address = (auth_ip_address, auth_port_number)
+    auth_address = (server_ip, auth_port_number)
     sign_to_auth_sock.connect(auth_address)
     sign_to_auth_sock.send(register_data)
     resp_from_auth = sign_to_auth_sock.recv(1024)
@@ -151,13 +190,44 @@ def handle_server_registration(server_name, server_port, r):
     new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id_bin)
     return new_message_server
 
+def find_available_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(('127.0.0.1', 0))  # Bind to any available port
+    port = sock.getsockname()[1]  # Get the port
+    sock.close()
+    return port
+
+
+def save_server_name(server_name, server_ip, server_port):
+    with open("srvname.info", "a+") as f:
+        f.write(f"{server_name}:{server_ip}:{server_port}\n")
+        return True
+
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Message Server")
+    parser.add_argument("--ip", type=str, default="127.0.0.1", help="IP address to bind to")
+    parser.add_argument("--port", type=int, default=1145, help="Port to bind to")
+    args = parser.parse_args()
+    return args.ip, args.port
+
 
 def main():
     r = SpecificRequest()
-    message_server = handle_server_registration("hello", 1145, r)
-    message_server.write_server_info()
-    # register this message server to the authentication server
+    server_name = input("Enter server name: ")
+    print("Server name:", server_name)
+    server_ip, server_port = parse_arguments()  # Get IP address and port from command-line arguments
+    if server_port == 1145:
+        server_port = find_available_port()
+    print("IP:", server_ip)
+    print("Port:", server_port)
 
+    while not save_server_name(server_name, server_ip, server_port):
+        server_name = input("Enter another server name: ")
+
+    message_server = handle_server_registration(server_name, server_ip, server_port, r)
+    message_server.write_server_info()
     server_address = (message_server.ip, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
@@ -165,9 +235,12 @@ def main():
     while True:
         client_sock, client_address = sock.accept()
         try:
-            message_server.handle_client_request(client_sock)
-        finally:
-            client_sock.close()
+            message_server.handle_client_request(r, client_sock)
+
+        except KeyboardInterrupt:
+            print("Server stopped by user.")
+        except Exception as e:
+            print(f"Error in main loop: {e}")
 
 
 if __name__ == "__main__":

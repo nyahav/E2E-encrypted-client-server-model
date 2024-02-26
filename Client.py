@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import subprocess
 import secrets
 import socket
 import time
@@ -13,7 +14,7 @@ from basicFunctions import *
 
 class Client:
     def __init__(self, auth_server_ip, auth_server_port):
-        self.aes_key = None
+        self.session_key = None
         self.client_id = None
         self.hashPassword = None
         self.encryption_helper = EncryptionHelper()
@@ -28,6 +29,33 @@ class Client:
         # Create persistent connections
         self.auth_sock = " "
         self.message_sock = ""
+
+        # Attempt to load saved password hash
+        self.saved_password_hash = self.load_saved_password_hash()
+        if self.saved_password_hash:
+            self.resign()
+
+    def load_saved_password_hash(self):
+        try:
+            with open("password_hash.txt", "r") as file:
+                return file.read().strip()
+        except FileNotFoundError:
+            return None
+
+    def save_password_hash(self, password_hash):
+        with open("password_hash.txt", "w") as file:
+            file.write(password_hash)
+
+    def resign(self):
+        while True:
+            password = input("Enter your password to resume: ")
+            hashPassword = hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+            if hashPassword == self.saved_password_hash:
+                print("Password matched. Resuming...")
+                return
+            else:
+                print("Incorrect password. Please try again.")
 
     def read_client_info(self):
         try:
@@ -72,7 +100,7 @@ class Client:
         auth_sock.send(request_data)
         response = auth_sock.recv(1024)
         header, payload = self.encryption_helper.unpack_auth(HeadersFormat.AUTH_RESP_HEADER.value, response)
-        if header[1] != 1600:
+        if header[1] != ResponseAuth.REGISTER_SUCCESS_RESP:
             print("Error: Registration failed.")
             return
 
@@ -168,6 +196,7 @@ class Client:
         """Prompts the user to select a server from the provided list and validates their choice."""
 
         while True:
+            print(Color.GREEN.value + "You need to choose one of the following servers:" + Color.RESET.value)
             print(Color.GREEN.value + "Available servers:" + Color.RESET.value)
             for i, server in enumerate(self.server_list):
                 print(f"{i + 1}. {server['server_name']} ({server['server_id']})")
@@ -183,7 +212,8 @@ class Client:
                     self.message_server_port = selected_server['server_port']
                     return selected_server_id
                 else:
-                    print("Invalid selection. Please enter a valid server number.")
+                    print(
+                        Color.GREEN.value + "Invalid selection. Please enter a valid server number." + Color.RESET.value)
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 
@@ -195,26 +225,27 @@ class Client:
         auth_sock.send(request_data)
         print(request_data)
         response = auth_sock.recv(1024)
-        ticket_data_length, encrypted_key_length = struct.unpack("<II", response[:8])
+        ticket_data_length, session_key_length = struct.unpack("<II", response[:8])
 
         # Extract ticket_data and encrypted_key
         ticket_data = response[8:8 + ticket_data_length]
-        encrypted_key_and_iv = response[8 + ticket_data_length:]
+        session_key_and_iv = response[8 + ticket_data_length:]
+
         # Extract the encrypted key and client_iv
         client_iv_size = 16  # Assuming client_iv is 16 bytes long
-        encrypted_key_length = len(encrypted_key_and_iv) - client_iv_size
-        encrypted_key = encrypted_key_and_iv[:encrypted_key_length]
-        client_iv = encrypted_key_and_iv[encrypted_key_length:]  # Slice directly from the end
+        session_key_length = len(session_key_and_iv) - client_iv_size
+        session_key = session_key_and_iv[:session_key_length]
+        client_iv = session_key_and_iv[session_key_length:]
         # Decrypt the encrypted key
-        encrypted_key_after_decryption = self.encryption_helper.decrypt_message(encrypted_key, self.hashPassword,
-                                                                                client_iv)
-
+        session_key_after_decryption = self.encryption_helper.decrypt_message(session_key,
+                                                                              self.hashPassword,
+                                                                              client_iv)
         # Split the decrypted key into messageserver_key and nonce
-        messageserver_key = encrypted_key_after_decryption[:-nonce_length]
-        nonce_sent_back = encrypted_key_after_decryption[-nonce_length:]
+        session_key = session_key_after_decryption[:-nonce_length]
+        nonce_sent_back = session_key_after_decryption[-nonce_length:]
         if nonce_sent_back != nonce:
             print("Error: Nonce mismatch")
-        self.aes_key = messageserver_key  # Assuming payload holds the AES key
+        self.session_key = session_key  # Assuming payload holds the AES key
 
         return ticket_data
 
@@ -227,40 +258,60 @@ class Client:
         authenticator_data = struct.pack("<B16s16sQ",
                                          VERSION,  # Version (1 byte)
                                          client_id,  # Client ID (16 bytes)
-                                         server_id.encode(),  # Server ID (16 bytes)
+                                         bytes.fromhex(server_id),  # Server ID (16 bytes)
                                          int(time_stamp))  # Creation time (8 bytes)
-
-        authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.aes_key, iv)
+        print("authenticator_data " + str(authenticator_data))
+        authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.session_key, iv)
+        print("authenticator " + str(authenticator))
         # Calculate lengths of authenticator and ticket
         authenticator_length = len(authenticator)
         ticket_length = len(ticket)
         # Pack lengths and data into request
         request_data = struct.pack("<II", authenticator_length, ticket_length) + iv + authenticator + ticket
-        request_data_with_header = r.MyRequest.sending_aes_key_to_message_server(self.client_id,request_data)
+        request_data_with_header = r.MyRequest.sending_aes_key_to_message_server(self.client_id, request_data)
         message_sock.send(request_data_with_header)
         response = message_sock.recv(1024)
         # need to parse response to get back code
-        if response != ResponseMessage.APPROVE_SYMETRIC_KEY:
-            print("error")
+        header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
 
-    def messaging_the_message_server(self, auth_sock):
+        if header[2] != ResponseMessage.APPROVE_SYMETRIC_KEY:
+            print("error")
+        else:
+            print("Your registration with the message server has been successfully completed and secured.")
+
+    def messaging_the_message_server(self, message_sock):
 
         message = input("Enter your message: ")
         # Generate a random 16-byte IV (initialization vector)
         iv = os.urandom(16)
         # Encrypt the message using AES-CBC mode
-        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.aes_key, iv)
+        print(str(self.session_key))
+        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.session_key, iv)
         # Prepend the 4-byte message size (assuming little-endian)
         request_data = r.MyRequest.sending_message_to_message_server(self.client_id,
                                                                      len(encrypted_message).to_bytes(4, "little"),
                                                                      iv,
                                                                      encrypted_message)
-        # Send the request data to the message server
-        auth_sock.send(request_data)
-        response = auth_sock.recv(1024)
-        # need to parse response to get back code
-        if response != ResponseMessage.APPROVE_MESSAGE_RECIVED:
+        """issue here-not sending the request_data to message server:"""
+        """probably something to do with the socket connection not empty/refused connection"""
+        message_sock.send(request_data)
+        response = message_sock.recv(1024)
+        header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
+        if header[2] != ResponseMessage.APPROVE_MESSAGE_RECIVED:
             print("error")
+
+    def check_server_running(self,ip, port):
+        # Attempt to connect to the server with a short timeout
+        try:
+            with socket.create_connection((ip, port), timeout=1):
+                return True
+        except (ConnectionRefusedError, socket.timeout):
+            return False
+
+    def start_message_server(self,ip, port):
+        # Start the message server as a subprocess
+        subprocess.Popen(["python", "MessageServer.py", "--ip", ip, "--port",
+                          str(port)])  # Replace with the actual command to start the server
 
     def main(client, r):
         # AuthServer Part
@@ -274,10 +325,17 @@ class Client:
 
         # MessageServer Part
         message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_running = client.check_server_running(client.message_server_ip, client.message_server_port)
+        if not server_running:
+            client.start_message_server(client.message_server_ip,client.message_server_port)
+            time.sleep(5)
+
         message_sock.connect((client.message_server_ip, int(client.message_server_port)))
         client.sending_aes_key_to_message_server(message_sock, client.client_id, selected_server_id, ticket)
         client.messaging_the_message_server(message_sock)
         message_sock.close()
+
+
 
 
 if __name__ == "__main__":
