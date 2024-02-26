@@ -8,7 +8,11 @@ import uuid
 
 
 class MessageServer:
-    def __init__(self, server_name, port=None, symmetric_key=None, server_id_bin=None):
+    def __init__(self, server_name=None, port=None, symmetric_key=None, server_id_bin=None):
+        if server_name is None:
+            server_name = f"server_{uuid.uuid4().hex}"  # Generate a unique server name
+        if port is None:
+            port = self.find_available_port()  # Find an available port dynamically
         self.ip = '127.0.0.1'
         self.port = port
         self.server_name = server_name
@@ -16,8 +20,15 @@ class MessageServer:
         self.server_id = uuid.UUID(bytes=server_id_bin)  # ascii form
         print("Server id: ", self.server_id)
         self.encryption_helper = EncryptionHelper()
-        if port is None:
-            self.read_server_info()  # Read info from msg(#).info
+
+    @staticmethod
+    def find_available_port():
+        """Find an available port."""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(('127.0.0.1', 0))  # Bind to any available port
+        port = sock.getsockname()[1]  # Get the port
+        sock.close()
+        return port
 
     def read_server_info(self):
         with open(f"{self.server_name}.info", "r") as f:
@@ -161,12 +172,34 @@ def handle_server_registration(server_name, server_port, r):
     return new_message_server
 
 
+def find_available_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(('127.0.0.1', 0))  # Bind to any available port
+    port = sock.getsockname()[1]  # Get the port
+    sock.close()
+    return port
+
+
+def save_server_name(server_name):
+    with open("srvname.info", "a+") as f:
+        f.seek(0)
+        names = f.read().splitlines()
+        if server_name in names:
+            print("Server name already exists.")
+            return False
+        f.write(server_name + "\n")
+        return True
+
+
 def main():
     r = SpecificRequest()
-    message_server = handle_server_registration("hello", 1145, r)
+    server_name = input("Enter server name: ")
+    while not save_server_name(server_name):
+        server_name = input("Enter another server name: ")
+    server_port = find_available_port()
+    print(f"Allocated port: {server_port}")
+    message_server = handle_server_registration(server_name, server_port, r)
     message_server.write_server_info()
-    # register this message server to the authentication server
-
     server_address = (message_server.ip, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
