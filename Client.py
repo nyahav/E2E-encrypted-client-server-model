@@ -291,12 +291,26 @@ class Client:
                                                                      len(encrypted_message).to_bytes(4, "little"),
                                                                      iv,
                                                                      encrypted_message)
-        # Send the request data to the message server
+        """issue here-not sending the request_data to message server:"""
+        """probably something to do with the socket connection not empty/refused connection"""
         message_sock.send(request_data)
         response = message_sock.recv(1024)
         header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
         if header[2] != ResponseMessage.APPROVE_MESSAGE_RECIVED:
             print("error")
+
+    def check_server_running(self,ip, port):
+        # Attempt to connect to the server with a short timeout
+        try:
+            with socket.create_connection((ip, port), timeout=1):
+                return True
+        except (ConnectionRefusedError, socket.timeout):
+            return False
+
+    def start_message_server(self,ip, port):
+        # Start the message server as a subprocess
+        subprocess.Popen(["python", "MessageServer.py", "--ip", ip, "--port",
+                          str(port)])  # Replace with the actual command to start the server
 
     def main(client, r):
         # AuthServer Part
@@ -310,10 +324,9 @@ class Client:
 
         # MessageServer Part
         message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_running = check_server_running(client.message_server_ip, client.message_server_port)
-
+        server_running = client.check_server_running(client.message_server_ip, client.message_server_port)
         if not server_running:
-            start_message_server()
+            client.start_message_server(client.message_server_ip,client.message_server_port)
             time.sleep(5)
 
         message_sock.connect((client.message_server_ip, int(client.message_server_port)))
@@ -322,18 +335,6 @@ class Client:
         message_sock.close()
 
 
-def check_server_running(ip, port):
-    # Attempt to connect to the server with a short timeout
-    try:
-        with socket.create_connection((ip, port), timeout=1):
-            return True
-    except (ConnectionRefusedError, socket.timeout):
-        return False
-
-
-def start_message_server():
-    # Start the message server as a subprocess
-    subprocess.Popen(["python", "MessageServer.py"])  # Replace with the actual command to start the server
 
 
 if __name__ == "__main__":

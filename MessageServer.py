@@ -1,10 +1,14 @@
+import argparse
 import base64
 import socket
-from Definitions import *
-from basicFunctions import *
-from MessageComm import SpecificRequest
 import secrets
+import subprocess
+import struct
+import time
 import uuid
+from MessageComm import SpecificRequest
+from Definitions import HeadersFormat, Header, RequestMessage, ResponseMessage
+from basicFunctions import EncryptionHelper
 
 
 class MessageServer:
@@ -34,7 +38,7 @@ class MessageServer:
         with open(f"{self.server_name}.info", "r") as f:
             lines = f.readlines()
             if len(lines) >= 4:
-                (self.IP, self.port) = lines[0].strip().split(":")
+                (self.ip, self.port) = lines[0].strip().split(":")  # Update IP and port
                 self.server_id = uuid.UUID(lines[1].strip())
                 self.symmetric_key = base64.b64decode(lines[2].strip())
                 self.port = int(self.port)
@@ -45,7 +49,7 @@ class MessageServer:
             file.write(f"{self.server_id.hex}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
-    def handle_client_request(self,r, client_socket):
+    def handle_client_request(self, r, client_socket):
         """Handles incoming client requests."""
         try:
             # Receive the request from the client
@@ -56,9 +60,9 @@ class MessageServer:
             print("request_type " + str(request_type))
             # Handle different request types
             if request_type == RequestMessage.SEND_SYMETRIC_KEY:
-                response = self.receive_aes_key_from_client(r,payload)
+                response = self.receive_aes_key_from_client(r, payload)
             elif request_type == RequestMessage.SEND_MESSAGE:
-                response = self.receive_message_from_client(r,payload)
+                response = self.receive_message_from_client(r, payload)
             else:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
@@ -70,7 +74,7 @@ class MessageServer:
             client_socket.close()
 
     # Function to get an AES key from the message server
-    def receive_aes_key_from_client(self,r, request):
+    def receive_aes_key_from_client(self, r, request):
         try:
             auth_length, ticket_length = struct.unpack("<II", request[:8])
             iv = request[8:24]
@@ -80,7 +84,7 @@ class MessageServer:
 
             try:
                 total_ticket_length = ticket_length
-               # Lengths of known-size fields
+                # Lengths of known-size fields
                 known_fields_length = struct.calcsize("<B16s16sQ16s")
 
                 # Calculate the length of the encrypted message
@@ -151,17 +155,31 @@ class MessageServer:
 
     # Define receive_response and decrypt_message methods as needed
 
+def handle_server_registration(server_name, server_ip, server_port, r):
+    # Check if the server already exists
+    with open("srvname.info", "r") as f:
+        for line in f:
+            parts = line.strip().split(":")
+            if len(parts) == 3:
+                name, ip_port, _ = parts
+                if ip_port == f"{server_ip}:{server_port}":
+                    server_info_file = f"{name}.info"
+                    with open(server_info_file, "r") as info_file:
+                        lines = info_file.readlines()
+                        symmetric_key = base64.b64decode(lines[2].strip())
+                        server_id_bin = bytes.fromhex(lines[1].strip())
+                    return MessageServer(server_name=name, port=server_port, symmetric_key=symmetric_key,
+                                         server_id_bin=server_id_bin)
 
-def handle_server_registration(server_name, server_port, r):
+    # If the server doesn't exist, register it with the authentication server
     eh = EncryptionHelper()
     auth_port_number = eh.get_auth_port_number()
-    auth_ip_address = '127.0.0.1'
     auth_aes_key = secrets.token_bytes(32)
     print("auth_aes_key" + str(auth_aes_key))
     register_data = r.register_server(bytes(16), server_name, auth_aes_key, server_port)
 
     sign_to_auth_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    auth_address = (auth_ip_address, auth_port_number)
+    auth_address = (server_ip, auth_port_number)
     sign_to_auth_sock.connect(auth_address)
     sign_to_auth_sock.send(register_data)
     resp_from_auth = sign_to_auth_sock.recv(1024)
@@ -169,7 +187,6 @@ def handle_server_registration(server_name, server_port, r):
     version, response_type, server_id_bin = SpecificRequest.unpack_register_message_success(resp_from_auth)
     new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id_bin)
     return new_message_server
-
 
 def find_available_port():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -179,25 +196,35 @@ def find_available_port():
     return port
 
 
-def save_server_name(server_name):
+def save_server_name(server_name, server_ip, server_port):
     with open("srvname.info", "a+") as f:
-        f.seek(0)
-        names = f.read().splitlines()
-        if server_name in names:
-            print("Server name already exists.")
-            return False
-        f.write(server_name + "\n")
+        f.write(f"{server_name}:{server_ip}:{server_port}\n")
         return True
+
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Message Server")
+    parser.add_argument("--ip", type=str, default="127.0.0.1", help="IP address to bind to")
+    parser.add_argument("--port", type=int, default=1145, help="Port to bind to")
+    args = parser.parse_args()
+    return args.ip, args.port
 
 
 def main():
     r = SpecificRequest()
     server_name = input("Enter server name: ")
-    while not save_server_name(server_name):
+    print("Server name:", server_name)
+    server_ip, server_port = parse_arguments()  # Get IP address and port from command-line arguments
+    if server_port == 1145:
+        server_port = find_available_port()
+    print("IP:", server_ip)
+    print("Port:", server_port)
+
+    while not save_server_name(server_name, server_ip, server_port):
         server_name = input("Enter another server name: ")
-    server_port = find_available_port()
-    print(f"Allocated port: {server_port}")
-    message_server = handle_server_registration(server_name, server_port, r)
+
+    message_server = handle_server_registration(server_name, server_ip, server_port, r)
     message_server.write_server_info()
     server_address = (message_server.ip, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -206,7 +233,7 @@ def main():
     while True:
         client_sock, client_address = sock.accept()
         try:
-            message_server.handle_client_request(r,client_sock)
+            message_server.handle_client_request(r, client_sock)
         finally:
             client_sock.close()
 
