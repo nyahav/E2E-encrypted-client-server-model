@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import subprocess
 import secrets
 import socket
 import time
@@ -55,6 +56,7 @@ class Client:
                 return
             else:
                 print("Incorrect password. Please try again.")
+
     def read_client_info(self):
         try:
             with open("me.info", "r") as file:
@@ -98,7 +100,7 @@ class Client:
         auth_sock.send(request_data)
         response = auth_sock.recv(1024)
         header, payload = self.encryption_helper.unpack_auth(HeadersFormat.AUTH_RESP_HEADER.value, response)
-        if header[1] != 1600:
+        if header[1] != ResponseAuth.REGISTER_SUCCESS_RESP:
             print("Error: Registration failed.")
             return
 
@@ -210,7 +212,8 @@ class Client:
                     self.message_server_port = selected_server['server_port']
                     return selected_server_id
                 else:
-                    print(Color.GREEN.value + "Invalid selection. Please enter a valid server number." + Color.RESET.value)
+                    print(
+                        Color.GREEN.value + "Invalid selection. Please enter a valid server number." + Color.RESET.value)
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 
@@ -269,11 +272,14 @@ class Client:
         message_sock.send(request_data_with_header)
         response = message_sock.recv(1024)
         # need to parse response to get back code
-        if response != ResponseMessage.APPROVE_SYMETRIC_KEY:
+        header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
+
+        if header[2] != ResponseMessage.APPROVE_SYMETRIC_KEY:
             print("error")
         else:
             print("Your registration with the message server has been successfully completed and secured.")
-    def messaging_the_message_server(self, auth_sock):
+
+    def messaging_the_message_server(self, message_sock):
 
         message = input("Enter your message: ")
         # Generate a random 16-byte IV (initialization vector)
@@ -286,10 +292,10 @@ class Client:
                                                                      iv,
                                                                      encrypted_message)
         # Send the request data to the message server
-        auth_sock.send(request_data)
-        response = auth_sock.recv(1024)
-        # need to parse response to get back code
-        if response != ResponseMessage.APPROVE_MESSAGE_RECIVED:
+        message_sock.send(request_data)
+        response = message_sock.recv(1024)
+        header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
+        if header[2] != ResponseMessage.APPROVE_MESSAGE_RECIVED:
             print("error")
 
     def main(client, r):
@@ -304,10 +310,30 @@ class Client:
 
         # MessageServer Part
         message_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_running = check_server_running(client.message_server_ip, client.message_server_port)
+
+        if not server_running:
+            start_message_server()
+            time.sleep(5)
+
         message_sock.connect((client.message_server_ip, int(client.message_server_port)))
         client.sending_aes_key_to_message_server(message_sock, client.client_id, selected_server_id, ticket)
         client.messaging_the_message_server(message_sock)
         message_sock.close()
+
+
+def check_server_running(ip, port):
+    # Attempt to connect to the server with a short timeout
+    try:
+        with socket.create_connection((ip, port), timeout=1):
+            return True
+    except (ConnectionRefusedError, socket.timeout):
+        return False
+
+
+def start_message_server():
+    # Start the message server as a subprocess
+    subprocess.Popen(["python", "MessageServer.py"])  # Replace with the actual command to start the server
 
 
 if __name__ == "__main__":

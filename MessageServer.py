@@ -45,7 +45,7 @@ class MessageServer:
             file.write(f"{self.server_id.hex}\n")
             file.write(f"{base64.b64encode(self.symmetric_key).decode()}\n")
 
-    def handle_client_request(self, client_socket):
+    def handle_client_request(self,r, client_socket):
         """Handles incoming client requests."""
         try:
             # Receive the request from the client
@@ -56,9 +56,9 @@ class MessageServer:
             print("request_type " + str(request_type))
             # Handle different request types
             if request_type == RequestMessage.SEND_SYMETRIC_KEY:
-                response = self.receive_aes_key_from_client(payload)
+                response = self.receive_aes_key_from_client(r,payload)
             elif request_type == RequestMessage.SEND_MESSAGE:
-                response = self.receive_message_from_client(payload)
+                response = self.receive_message_from_client(r,payload)
             else:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
@@ -70,7 +70,7 @@ class MessageServer:
             client_socket.close()
 
     # Function to get an AES key from the message server
-    def receive_aes_key_from_client(self, request):
+    def receive_aes_key_from_client(self,r, request):
         try:
             auth_length, ticket_length = struct.unpack("<II", request[:8])
             iv = request[8:24]
@@ -79,10 +79,8 @@ class MessageServer:
             ticket = request[authenticator_end:authenticator_end + ticket_length]
 
             try:
-                # Calculate the total length of the ticket
                 total_ticket_length = ticket_length
-
-                # Lengths of known-size fields
+               # Lengths of known-size fields
                 known_fields_length = struct.calcsize("<B16s16sQ16s")
 
                 # Calculate the length of the encrypted message
@@ -122,19 +120,20 @@ class MessageServer:
                     print("Mismatch between authenticator and ticket")
                     return ResponseMessage.GENERAL_ERROR
                     # Check if expiration time is valid
-                if expiration_time <= creation_timeT or expiration_time > creation_timeT + 60:
+                expiration_time_int = int.from_bytes(expiration_time, byteorder='little')
+                if expiration_time_int <= creation_timeT or expiration_time_int > creation_timeT + 60:
                     print("Invalid expiration time")
-                    return ResponseMessage.GENERAL_ERROR
+                    return r.general_error(client_idA)
             except ValueError as e:
                 print("Decryption error:", e)
-                return ResponseMessage.GENERAL_ERROR
+                return r.general_error(client_idA)
 
             # Send back a success response (code 1604)
-            return ResponseMessage.APPROVE_SYMETRIC_KEY
+            return r.approve_aes_receive(client_idA)
 
         except Exception as ex:
             print("Exception:", ex)
-            return ResponseMessage.GENERAL_ERROR
+            return r.general_error(client_idA)
 
     def receive_message_from_client(self, request):
         try:
@@ -207,7 +206,7 @@ def main():
     while True:
         client_sock, client_address = sock.accept()
         try:
-            message_server.handle_client_request(client_sock)
+            message_server.handle_client_request(r,client_sock)
         finally:
             client_sock.close()
 
