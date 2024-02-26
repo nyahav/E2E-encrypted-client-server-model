@@ -13,10 +13,12 @@ from basicFunctions import EncryptionHelper
 
 class MessageServer:
     def __init__(self, server_name=None, port=None, symmetric_key=None, server_id_bin=None):
+
         if server_name is None:
             server_name = f"server_{uuid.uuid4().hex}"  # Generate a unique server name
         if port is None:
             port = self.find_available_port()  # Find an available port dynamically
+        self.session_key = None
         self.ip = '127.0.0.1'
         self.port = port
         self.server_name = server_name
@@ -51,30 +53,30 @@ class MessageServer:
 
     def handle_client_request(self, r, client_socket):
         """Handles incoming client requests."""
-        try:
+        while True:
             # Receive the request from the client
             request_data = client_socket.recv(1024)
+            if not request_data:
+                print("Empty request received (client connection)")
+                return
             header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
             request_type = header[Header.CODE.value]
             request_client_id_bin = header[Header.CLIENT_ID.value]
             print("request_type " + str(request_type))
             # Handle different request types
             if request_type == RequestMessage.SEND_SYMETRIC_KEY:
-                response = self.receive_aes_key_from_client(r, payload)
+                response = self.receive_aes_key_from_client(r,header[0], payload)
             elif request_type == RequestMessage.SEND_MESSAGE:
-                response = self.receive_message_from_client(r, payload)
+                response = self.receive_message_from_client(r, header[0], payload)
             else:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
             client_socket.send(response)
-        except Exception as e:
-            print(f"Error handling client: {e}")
 
-        finally:
-            client_socket.close()
+
 
     # Function to get an AES key from the message server
-    def receive_aes_key_from_client(self, r, request):
+    def receive_aes_key_from_client(self, r,client_id, request):
         try:
             auth_length, ticket_length = struct.unpack("<II", request[:8])
             iv = request[8:24]
@@ -105,7 +107,7 @@ class MessageServer:
 
                 # Extract client message session key
                 client_message_session_key = decrypted_data[:client_message_session_key_length]
-
+                self.session_key=client_message_session_key
                 # Extract expiration time
                 expiration_time_start_index = client_message_session_key_length  # Start index of expiration time
                 expiration_time = decrypted_data[
@@ -130,7 +132,7 @@ class MessageServer:
                     return r.general_error(client_idA)
             except ValueError as e:
                 print("Decryption error:", e)
-                return r.general_error(client_idA)
+                return r.general_error(client_id)
 
             # Send back a success response (code 1604)
             return r.approve_aes_receive(client_idA)
@@ -139,18 +141,18 @@ class MessageServer:
             print("Exception:", ex)
             return r.general_error(client_idA)
 
-    def receive_message_from_client(self, request):
+    def receive_message_from_client(self, r,client_id, request):
         try:
             # Define the format string to unpack the data
             format_string = '<I16s'
             message_size, message_iv = struct.unpack(format_string, request[:20])
             message_content = request[20:]
-            decrypted_message = self.encryption_helper.decrypt_message(message_content, self.symmetric_key, message_iv)
-            print(decrypted_message)
-            return ResponseMessage.APPROVE_MESSAGE_RECIVED
+            decrypted_message = self.encryption_helper.decrypt_message(message_content, self.session_key, message_iv)
+            print(decrypted_message.decode())
+            return r.approve_message_receive(client_id)
         except Exception as e:
             print(f"Error receiving message from client: {e}")
-            return ResponseMessage.GENERAL_ERROR
+            return r.general_error(client_id)
         # Process the decrypted message further as needed
 
     # Define receive_response and decrypt_message methods as needed
@@ -234,8 +236,11 @@ def main():
         client_sock, client_address = sock.accept()
         try:
             message_server.handle_client_request(r, client_sock)
-        finally:
-            client_sock.close()
+
+        except KeyboardInterrupt:
+            print("Server stopped by user.")
+        except Exception as e:
+            print(f"Error in main loop: {e}")
 
 
 if __name__ == "__main__":

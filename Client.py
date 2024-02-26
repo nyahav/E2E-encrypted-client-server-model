@@ -285,6 +285,7 @@ class Client:
         # Generate a random 16-byte IV (initialization vector)
         iv = os.urandom(16)
         # Encrypt the message using AES-CBC mode
+        print(str(self.session_key))
         encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.session_key, iv)
         # Prepend the 4-byte message size (assuming little-endian)
         request_data = r.MyRequest.sending_message_to_message_server(self.client_id,
