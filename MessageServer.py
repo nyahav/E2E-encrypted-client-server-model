@@ -9,7 +9,7 @@ import uuid
 from MessageComm import SpecificRequest
 from Definitions import HeadersFormat, Header, RequestMessage, ResponseMessage
 from basicFunctions import EncryptionHelper
-
+import os
 
 class MessageServer:
     def __init__(self, server_name=None, port=None, symmetric_key=None, server_id_bin=None):
@@ -23,8 +23,8 @@ class MessageServer:
         self.port = port
         self.server_name = server_name
         self.symmetric_key = symmetric_key
-        self.server_id = uuid.UUID(bytes=server_id_bin)  # ascii form
-        print("Server id: ", self.server_id)
+        if server_id_bin:
+            self.server_id = uuid.UUID(bytes=server_id_bin)  # ascii form
         self.encryption_helper = EncryptionHelper()
 
     @staticmethod
@@ -39,7 +39,7 @@ class MessageServer:
     def read_server_info(self):
         with open(f"{self.server_name}.info", "r") as f:
             lines = f.readlines()
-            if len(lines) >= 4:
+            if len(lines) >= 3:
                 (self.ip, self.port) = lines[0].strip().split(":")  # Update IP and port
                 self.server_id = uuid.UUID(lines[1].strip())
                 self.symmetric_key = base64.b64decode(lines[2].strip())
@@ -158,22 +158,7 @@ class MessageServer:
     # Define receive_response and decrypt_message methods as needed
 
 def handle_server_registration(server_name, server_ip, server_port, r):
-    # Check if the server already exists
-    with open("srvname.info", "r") as f:
-        for line in f:
-            parts = line.strip().split(":")
-            if len(parts) == 3:
-                name, ip_port, _ = parts
-                if ip_port == f"{server_ip}:{server_port}":
-                    server_info_file = f"{name}.info"
-                    with open(server_info_file, "r") as info_file:
-                        lines = info_file.readlines()
-                        symmetric_key = base64.b64decode(lines[2].strip())
-                        server_id_bin = bytes.fromhex(lines[1].strip())
-                    return MessageServer(server_name=name, port=server_port, symmetric_key=symmetric_key,
-                                         server_id_bin=server_id_bin)
-
-    # If the server doesn't exist, register it with the authentication server
+    
     eh = EncryptionHelper()
     auth_port_number = eh.get_auth_port_number()
     auth_aes_key = secrets.token_bytes(32)
@@ -216,18 +201,23 @@ def parse_arguments():
 def main():
     r = SpecificRequest()
     server_name = input("Enter server name: ")
-    print("Server name:", server_name)
-    server_ip, server_port = parse_arguments()  # Get IP address and port from command-line arguments
-    if server_port == 1145:
-        server_port = find_available_port()
-    print("IP:", server_ip)
-    print("Port:", server_port)
+    message_server = MessageServer()
+    message_server.server_name = server_name
+    if os.path.exists(f"{server_name}.info"):
+        message_server.read_server_info()
+    else:
+        print("Server name:", server_name)
+        server_ip, server_port = parse_arguments()  # Get IP address and port from command-line arguments
+        if server_port == 1145:
+            server_port = find_available_port()
+        print("IP:", server_ip)
+        print("Port:", server_port)
 
-    while not save_server_name(server_name, server_ip, server_port):
-        server_name = input("Enter another server name: ")
+        while not save_server_name(server_name, server_ip, server_port):
+            server_name = input("Enter another server name: ")
 
-    message_server = handle_server_registration(server_name, server_ip, server_port, r)
-    message_server.write_server_info()
+        message_server = handle_server_registration(server_name, server_ip, server_port, r)
+        message_server.write_server_info()
     server_address = (message_server.ip, message_server.port)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
