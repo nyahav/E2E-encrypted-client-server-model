@@ -2,7 +2,7 @@ import argparse
 import base64
 import socket
 import secrets
-import subprocess
+import threading
 import struct
 import time
 import uuid
@@ -10,6 +10,7 @@ from MessageComm import SpecificRequest
 from Definitions import HeadersFormat, Header, RequestMessage, ResponseMessage
 from basicFunctions import EncryptionHelper
 import os
+
 
 class MessageServer:
     def __init__(self, server_name=None, port=None, symmetric_key=None, server_id_bin=None):
@@ -65,7 +66,7 @@ class MessageServer:
             print("request_type " + str(request_type))
             # Handle different request types
             if request_type == RequestMessage.SEND_SYMETRIC_KEY:
-                response = self.receive_aes_key_from_client(r,header[0], payload)
+                response = self.receive_aes_key_from_client(r, header[0], payload)
             elif request_type == RequestMessage.SEND_MESSAGE:
                 response = self.receive_message_from_client(r, header[0], payload)
             else:
@@ -73,10 +74,8 @@ class MessageServer:
 
             client_socket.send(response)
 
-
-
     # Function to get an AES key from the message server
-    def receive_aes_key_from_client(self, r,client_id, request):
+    def receive_aes_key_from_client(self, r, client_id, request):
         try:
             auth_length, ticket_length = struct.unpack("<II", request[:8])
             iv = request[8:24]
@@ -107,7 +106,7 @@ class MessageServer:
 
                 # Extract client message session key
                 client_message_session_key = decrypted_data[:client_message_session_key_length]
-                self.session_key=client_message_session_key
+                self.session_key = client_message_session_key
                 # Extract expiration time
                 expiration_time_start_index = client_message_session_key_length  # Start index of expiration time
                 expiration_time = decrypted_data[
@@ -141,7 +140,7 @@ class MessageServer:
             print("Exception:", ex)
             return r.general_error(client_idA)
 
-    def receive_message_from_client(self, r,client_id, request):
+    def receive_message_from_client(self, r, client_id, request):
         try:
             # Define the format string to unpack the data
             format_string = '<I16s'
@@ -157,8 +156,8 @@ class MessageServer:
 
     # Define receive_response and decrypt_message methods as needed
 
+
 def handle_server_registration(server_name, server_ip, server_port, r):
-    
     eh = EncryptionHelper()
     auth_port_number = eh.get_auth_port_number()
     auth_aes_key = secrets.token_bytes(32)
@@ -175,6 +174,7 @@ def handle_server_registration(server_name, server_ip, server_port, r):
     new_message_server = MessageServer(server_name, server_port, auth_aes_key, server_id_bin)
     return new_message_server
 
+
 def find_available_port():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('127.0.0.1', 0))  # Bind to any available port
@@ -189,7 +189,6 @@ def save_server_name(server_name, server_ip, server_port):
         return True
 
 
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Message Server")
     parser.add_argument("--ip", type=str, default="127.0.0.1", help="IP address to bind to")
@@ -198,9 +197,8 @@ def parse_arguments():
     return args.ip, args.port
 
 
-def main():
+def message_run(server_name):
     r = SpecificRequest()
-    server_name = input("Enter server name: ")
     message_server = MessageServer()
     message_server.server_name = server_name
     if os.path.exists(f"{server_name}.info"):
@@ -222,15 +220,39 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(server_address)
     sock.listen(1)
-    while True:
-        client_sock, client_address = sock.accept()
-        try:
-            message_server.handle_client_request(r, client_sock)
+    try:
+        while True:
+            try:
+                client_sock, client_address = sock.accept()
+                threading.Thread(target=message_server.handle_client_request, args=(r, client_sock)).start()
+            except Exception as e:
+                print(f"Error accepting a connection or starting a thread: {e}")
+    except KeyboardInterrupt:
+        print("Server stopped by user.")
+    finally:
+        sock.close()
+        print("Socket closed.")
 
-        except KeyboardInterrupt:
-            print("Server stopped by user.")
-        except Exception as e:
-            print(f"Error in main loop: {e}")
+
+def main():
+    names = [
+        "EchoEpic",
+        "MirrorMemo",
+        "PingPong",
+        "DataDose",
+        "ByteBurst",
+        "FeedbackFiesta",
+        "FetchFable",
+        "PassPostcard",
+        "ReverbRiot",
+        "EchoEase"
+    ]
+
+    for i in range(1, 11):
+        server_name = names[i-1]
+        server_port = 8000 + i  # Example port assignment; ensure these ports are available
+        t = threading.Thread(target=message_run, args=(server_name,), name=server_name)
+        t.start()
 
 
 if __name__ == "__main__":
