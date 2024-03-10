@@ -4,6 +4,10 @@ Project Description
 
 This project implements a simple end-to-end encrypted client-server model using the Python programming language. The project uses the socket and pycryptodome libraries to implement the client and server components.
 
+Project written by:
+Yahav Nir
+Elad Shahar
+
 Project Architecture
 
 The project architecture is based on a client-server model. The client initiates a connection with the authentication server, which validates the client's identity. After successful authentication, the client receives a symmetric key for communication with the message server. The client then sends the symmetric key to the message server, after which it can send encrypted messages to the message server. The message server's role is to receive messages from clients and print them to the console.

@@ -56,11 +56,13 @@ class MessageServer:
 
     def handle_client_request(self, r, client_socket):
         """Handles incoming client requests."""
+        received_message = False
         while True:
             # Receive the request from the client
             request_data = client_socket.recv(1024)
             if not request_data:
-                print("Closing session between client and server... (success)")
+                if received_message:
+                    print(f"Closing messaging session between client and server {self.server_name}... (success)")
                 return
             header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
             request_type = header[Header.CODE.value]
@@ -70,6 +72,7 @@ class MessageServer:
                 response = self.receive_aes_key_from_client(r, header[0], payload)
             elif request_type == RequestMessage.SEND_MESSAGE:
                 response = self.receive_message_from_client(r, header[0], payload)
+                received_message = True
             else:
                 response = (ResponseMessage.GENERAL_ERROR,)
 
@@ -97,7 +100,6 @@ class MessageServer:
                                                                                                                 :known_fields_length])
                 # Extract encrypted message
                 encrypted_data = ticket[known_fields_length:]
-                print("messageServer_key " + str(self.symmetric_key))
                 # Decrypt the encrypted message using the ticket IV and symmetric key
                 decrypted_data = self.encryption_helper.decrypt_message(encrypted_data, self.symmetric_key, ticket_iv)
 

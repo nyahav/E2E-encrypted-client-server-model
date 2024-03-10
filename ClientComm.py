@@ -42,7 +42,7 @@ class SpecificRequest(Request):
             return request_data
 
         @staticmethod
-        def request_aes_key_from_auth(self,client_id,server_id,nonce):
+        def request_aes_key_from_auth(self, client_id, server_id, nonce):
             payload = bytes.fromhex(server_id) + nonce
             request_data = struct.Struct(HEADER_SIZE).pack(client_id, VERSION, 1027, len(payload))
             request_data = request_data+payload

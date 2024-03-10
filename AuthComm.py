@@ -23,6 +23,7 @@ class AuthCommHelper(Request):
         resp_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_SUCCESS_RESP.value, len(payload))
         resp_data += payload
         return resp_data
+
     @staticmethod
     def register_client_failure():
         request_data = struct.pack(resp_format, VERSION, ResponseAuth.REGISTER_FAILURE_RESP.value, 0)
@@ -30,7 +31,7 @@ class AuthCommHelper(Request):
 
     @staticmethod
     def response_message_servers_list(server_list):
-        #error encoding this
+        # error encoding this
         try:
             # Encode each server dictionary as a JSON string
             encoded_servers = [json.dumps(server).encode('utf-8') for server in server_list]
