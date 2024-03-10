@@ -280,25 +280,28 @@ class Client:
             print("Your registration with the message server has been successfully completed and secured.")
 
     def messaging_the_message_server(self, message_sock):
+        while True:
+            message = input("Enter your message ('exit' to quit): ")
+            if message.lower() == 'exit':
+                print("Exiting message sending loop.")
+                break
 
-        message = input("Enter your message: ")
-        # Generate a random 16-byte IV (initialization vector)
-        iv = os.urandom(16)
-        # Encrypt the message using AES-CBC mode
-        print(str(self.session_key))
-        encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.session_key, iv)
-        # Prepend the 4-byte message size (assuming little-endian)
-        request_data = r.MyRequest.sending_message_to_message_server(self.client_id,
-                                                                     len(encrypted_message).to_bytes(4, "little"),
-                                                                     iv,
-                                                                     encrypted_message)
-        """issue here-not sending the request_data to message server:"""
-        """probably something to do with the socket connection not empty/refused connection"""
-        message_sock.send(request_data)
-        response = message_sock.recv(1024)
-        header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
-        if header[2] != ResponseMessage.APPROVE_MESSAGE_RECIVED:
-            print("error")
+            iv = os.urandom(16)
+            encrypted_message = self.encryption_helper.encrypt_message(message.encode(), self.session_key, iv)
+            message_size = len(encrypted_message).to_bytes(4, "little")
+            request_data = r.MyRequest.sending_message_to_message_server(
+                self.client_id,
+                message_size,
+                iv,
+                encrypted_message
+            )
+
+            message_sock.send(request_data)
+
+            response = message_sock.recv(1024)
+            header, payload = self.encryption_helper.unpack_auth(HeadersFormat.MESSAGE_FORMAT.value, response)
+            if header[2] != ResponseMessage.APPROVE_MESSAGE_RECIVED:
+                print("Error: Message was not received by the server.")
 
     def check_server_running(self,ip, port):
         # Attempt to connect to the server with a short timeout
