@@ -223,7 +223,6 @@ class Client:
         nonce = secrets.token_bytes(nonce_length)
         request_data = r.MyRequest.request_aes_key_from_auth(self, client_id, server_id, nonce)
         auth_sock.send(request_data)
-        print(request_data)
         response = auth_sock.recv(1024)
         ticket_data_length, session_key_length = struct.unpack("<II", response[:8])
 
@@ -260,9 +259,7 @@ class Client:
                                          client_id,  # Client ID (16 bytes)
                                          bytes.fromhex(server_id),  # Server ID (16 bytes)
                                          int(time_stamp))  # Creation time (8 bytes)
-        print("authenticator_data " + str(authenticator_data))
         authenticator = self.encryption_helper.encrypt_message(authenticator_data, self.session_key, iv)
-        print("authenticator " + str(authenticator))
         # Calculate lengths of authenticator and ticket
         authenticator_length = len(authenticator)
         ticket_length = len(ticket)
@@ -283,7 +280,7 @@ class Client:
         while True:
             message = input("Enter your message ('exit' to quit): ")
             if message.lower() == 'exit':
-                print("Exiting message sending loop.")
+                print("Closing session between client and server... (success)")
                 break
 
             iv = os.urandom(16)

@@ -211,9 +211,7 @@ class AuthenticationServer:
                 'server_id': server_id
             }
             modified_server_list.append(modified_server)
-        print(modified_server_list)
         response_data = AuthCommHelper.response_message_servers_list(modified_server_list)
-        print(response_data)
         return response_data
 
     def handle_request_get_aes_key(self, request, client_id):
