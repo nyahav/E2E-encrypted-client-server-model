@@ -122,19 +122,19 @@ class AuthenticationServer:
                 header, payload = self.encryption_helper.unpack(HeadersFormat.CLIENT_FORMAT.value, request_data)
                 request_type = header[Header.CODE.value]
                 request_client_id_bin = header[Header.CLIENT_ID.value]
-                print("request_type: " + str(request_type))
                 # Use a switch case or if-elif statements to handle different request types
                 if request_type == ClientRequestToAuth.REGISTER_CLIENT:
                     response_data = self.handle_client_connection(payload)
-
+                    print("request type: Handle client register")
                 elif request_type == ClientRequestToAuth.REQUEST_LIST_OF_MESSAGE_SERVERS:
                     response_data = self.handle_request_server_list_()
-
+                    print("request type: Server list")
                 elif request_type == ClientRequestToAuth.GET_SYMETRIC_KEY:
                     response_data = self.handle_request_get_aes_key(payload, request_client_id_bin)
-
+                    print("request type: get MessageServer AES key")
 
                 elif request_type == MessageServerToAuth.REGISTER_MESSAGE_SERVER:
+                    print("request type: register MessageServer")
                     message_server_payload_format = '<255s32sH'
                     # Unpack the data
                     server_name, aes_key, port = struct.unpack(message_server_payload_format, payload)
@@ -237,7 +237,6 @@ class AuthenticationServer:
             encrypted_key = EncryptionHelper.encrypt_message(client_message_session_key + nonce_bin,
                                                              client_hashed_password_key_bytes,
                                                              client_iv)
-            print(" client_message_session_key" + str( client_message_session_key))
             encrypted_key += client_iv
 
             # Create the ticket for the message server
@@ -251,11 +250,7 @@ class AuthenticationServer:
             encrypted_message = EncryptionHelper.encrypt_message(client_message_session_key + expiration_bytes,
                                                                  message_server_key_bytes, ticket_iv)
             encrypted_message_length = len(encrypted_message)
-            print("message_server_key_bytes "+str(message_server_key_bytes))
-            print(" expiration_time " + str(expiration_time))
-            print("expiration_bytes " + str(expiration_bytes))
-            print("ticket_iv" + str(ticket_iv))
-            print("encrypted_message " + str(encrypted_message))
+
             # Pack the dynamic data
             ticket_data = struct.pack(f"<B16s16sQ16s{encrypted_message_length}s",
                                       VERSION,
@@ -265,7 +260,6 @@ class AuthenticationServer:
                                       ticket_iv,
                                       encrypted_message)
 
-            print("ticket:", ticket_data)
             response = struct.pack("<II", len(ticket_data), len(encrypted_key)) + ticket_data + encrypted_key
             return response
 
@@ -321,7 +315,8 @@ class AuthenticationServer:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(("localhost", self.port))
         server_socket.listen(5)
-        print(f"Authentication server listening on port {self.port}...")
+
+        print(Color.GREEN.value + f"Authentication server listening on port {self.port}..." + Color.RESET.value)
 
         # Consider adding switch case for requests
         while True:

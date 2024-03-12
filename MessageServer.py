@@ -7,7 +7,7 @@ import struct
 import time
 import uuid
 from MessageComm import SpecificRequest
-from Definitions import HeadersFormat, Header, RequestMessage, ResponseMessage
+from Definitions import HeadersFormat, Header, RequestMessage, ResponseMessage, Color
 from basicFunctions import EncryptionHelper
 import os
 
@@ -204,12 +204,13 @@ def message_run(server_name):
     message_server.server_name = server_name
     if os.path.exists(f"{server_name}.info"):
         lock.acquire()
-        print(f"Loading {server_name} from file..")
+        print("loading " + Color.GREEN.value + server_name + Color.RESET.value + " from file...")
         lock.release()
         message_server.read_server_info()
     else:
         lock.acquire()
-        print("Server name:", server_name)
+
+        print(Color.GREEN.value + "Server name:", server_name + Color.RESET.value)
         server_ip, server_port = parse_arguments()  # Get IP address and port from command-line arguments
         if server_port == 1145:
             server_port = find_available_port()
