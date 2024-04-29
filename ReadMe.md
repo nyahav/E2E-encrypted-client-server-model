@@ -1,12 +1,14 @@
-E2E-Encrypted Client-Server Model
+# E2E-Encrypted Client-Server Model
 
-Project Description
+
+# Project Description
+
 
 This project implements a simple end-to-end encrypted client-server model using Python. It leverages the socket and pycryptodome libraries to build secure communication channels ️.
 
-Project by: Yahav Nir & Elad Shahar
+# Project by: Yahav Nir & Elad Shahar
 
-Project Architecture
+# Project Architecture
 
 Imagine a classic client-server setup:
 
