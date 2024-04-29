@@ -2,53 +2,74 @@ E2E-Encrypted Client-Server Model
 
 Project Description
 
-This project implements a simple end-to-end encrypted client-server model using the Python programming language. The project uses the socket and pycryptodome libraries to implement the client and server components.
+This project implements a simple end-to-end encrypted client-server model using Python. It leverages the socket and pycryptodome libraries to build secure communication channels ️.
 
-Project written by:
-Yahav Nir, 
-Elad Shahar, 
+Project by: Yahav Nir & Elad Shahar
 
 Project Architecture
 
-The project architecture is based on a client-server model. The client initiates a connection with the authentication server, which validates the client's identity. After successful authentication, the client receives a symmetric key for communication with the message server. The client then sends the symmetric key to the message server, after which it can send encrypted messages to the message server. The message server's role is to receive messages from clients and print them to the console.
+Imagine a classic client-server setup:
+
+    The client connects to the authentication server for identity verification (like showing your ID at a club ).
+    After successful authentication, the client receives a secret key for secure communication with the message server (think of it as a secret handshake ).
+    The client securely sends the key to the message server.
+    Now, the client can send encrypted messages to the message server, which decrypts and displays them on the console (like whispering secrets ).
 
 Key Features
 
-    End-to-end encryption using the AES-CBC mode
-    Simple and easy to use
-    Written in Python
+    End-to-end encryption with AES-CBC mode (fancy way of saying your messages are scrambled and unreadable by anyone in between)
+    Simple and user-friendly (easy to set up and use)
+    Written in Python (a popular and beginner-friendly programming language)
 
 Usage
 
-To use the project, first install the required libraries:
+Before diving in, install the required libraries:
+Bash
 
-pip install socket
-pip install pycryptodome
+pip install socket pip install pycryptodome
+
+Use code with caution.
 
 Then, run the client and server scripts:
+Bash
 
 python client.py
 python server.py
 
-The client and server will then communicate with each other using end-to-end encryption.
+Use code with caution.
+
+This establishes a secure communication channel between the client and server, allowing them to exchange encrypted messages.
 
 Examples
 
-The following are some examples of how to use the project:
+    Sending a message from the client:
 
-# Send a message from the client to the server
+Python
+
 client.send_message("Hello, world!")
 
-# Receive a message from the server
+Use code with caution.
+
+    Receiving a message from the server:
+
+Python
+
 message = server.receive_message()
 
-# Print the message to the console
+Use code with caution.
+
+    Printing the message:
+
+Python
+
 print(message)
+
+Use code with caution.
 
 Future Work
 
-Some possible future work for this project include:
+Here are some ideas for further development:
 
-    Adding support for multiple users
-    Adding support for different encryption algorithms
-    Adding support for authentication using other methods, such as OAuth or OpenID Connect
+    Add support for multiple users (so you can have a secret chat party )
+    Implement additional encryption algorithms (for extra security layers ️)
+    Explore alternative authentication methods (like using existing login services )
