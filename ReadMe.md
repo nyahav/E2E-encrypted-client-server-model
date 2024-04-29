@@ -5,8 +5,8 @@ Project Description
 This project implements a simple end-to-end encrypted client-server model using the Python programming language. The project uses the socket and pycryptodome libraries to implement the client and server components.
 
 Project written by:
-Yahav Nir, 208400382
-Elad Shahar, 214763229
+Yahav Nir, 
+Elad Shahar, 
 
 Project Architecture
 
