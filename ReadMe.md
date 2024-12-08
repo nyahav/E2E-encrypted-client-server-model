@@ -1,4 +1,4 @@
-#E2E-Encrypted Client-Server Model
+# E2E-Encrypted Client-Server Model
 ---
 This project showcases a simple end-to-end encrypted (E2EE) client-server communication model built using Python. It leverages the socket and pycryptodome libraries to establish secure communication channels, ensuring privacy and confidentiality.
 
