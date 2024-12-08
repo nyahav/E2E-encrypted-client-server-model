@@ -5,6 +5,7 @@
 
 
 This project implements a simple end-to-end encrypted client-server model using Python. It leverages the socket and pycryptodome libraries to build secure communication channels ️.
+Check this video that showcase the project(hebrew): https://www.youtube.com/watch?v=vhV7PoPKuKg
 
 # Project by: Yahav Nir & Elad Shahar
 
